@@ -97,8 +97,13 @@
         <div class="map-container">
             <div id="map"></div>
             
+            <!-- 移动端地图控制按钮 -->
+            <button class="mobile-controls-btn" onclick="toggleMapControls()" id="mobileControlsBtn">
+                <span class="controls-icon">⚙️</span>
+            </button>
+
             <!-- 地图控制面板 -->
-            <div class="map-controls">
+            <div class="map-controls" id="mapControls">
                 <div class="control-group">
                     <div class="control-title">地图类型</div>
                     <button class="control-btn active" onclick="switchMapType('vector')" id="vectorBtn">线划图</button>
