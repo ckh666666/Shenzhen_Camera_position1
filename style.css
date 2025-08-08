@@ -73,6 +73,53 @@ body {
     gap: 0;
 }
 
+/* 移动端菜单按钮 */
+.mobile-menu-btn {
+    display: none;
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1001;
+    background: rgba(255, 255, 255, 0.95);
+    border: none;
+    border-radius: 8px;
+    width: 50px;
+    height: 50px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(10px);
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.3s ease;
+}
+
+.mobile-menu-btn:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: scale(1.05);
+}
+
+.hamburger {
+    width: 20px;
+    height: 2px;
+    background: #2c3e50;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+}
+
+.mobile-menu-btn.active .hamburger:nth-child(1) {
+    transform: rotate(45deg) translate(5px, 5px);
+}
+
+.mobile-menu-btn.active .hamburger:nth-child(2) {
+    opacity: 0;
+}
+
+.mobile-menu-btn.active .hamburger:nth-child(3) {
+    transform: rotate(-45deg) translate(7px, -6px);
+}
+
 /* 侧边栏 */
 .sidebar {
     width: 380px;
@@ -82,6 +129,7 @@ body {
     display: flex;
     flex-direction: column;
     box-shadow: 2px 0 20px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
 }
 
 /* 搜索区域 */
@@ -769,4 +817,136 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
+}
+
+/* 响应式设计 - 手机端 */
+@media screen and (max-width: 768px) {
+    /* 显示移动端菜单按钮 */
+    .mobile-menu-btn {
+        display: flex !important;
+    }
+    
+    /* 隐藏桌面端导航 */
+    .header {
+        padding: 10px 20px;
+        height: 60px;
+    }
+    
+    .logo h1 {
+        font-size: 18px;
+    }
+    
+    .nav-controls {
+        display: none;
+    }
+    
+    /* 主容器调整 */
+    .main-container {
+        height: calc(100vh - 60px);
+        position: relative;
+    }
+    
+    /* 侧边栏移动端样式 */
+    .sidebar {
+        position: fixed;
+        top: 60px;
+        left: 0;
+        height: calc(100vh - 60px);
+        width: 320px;
+        z-index: 1000;
+        transform: translateX(-100%);
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .sidebar.active {
+        transform: translateX(0);
+    }
+    
+    /* 地图容器调整 */
+    .map-container {
+        width: 100%;
+        margin-left: 0;
+    }
+    
+    /* 地图控制面板调整 */
+    .map-controls {
+        right: 10px;
+        top: 80px;
+        width: 200px;
+    }
+    
+    /* 状态指示器调整 */
+    .status-indicator {
+        bottom: 20px;
+        left: 10px;
+        right: 10px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .status-item {
+        font-size: 12px;
+        min-width: 120px;
+    }
+    
+    /* 搜索区域调整 */
+    .search-section {
+        padding: 20px;
+    }
+    
+    .search-title {
+        font-size: 16px;
+    }
+    
+    .search-input {
+        font-size: 14px;
+        padding: 10px;
+    }
+    
+    .import-btn {
+        font-size: 12px;
+        padding: 8px 12px;
+    }
+    
+    /* 机位列表调整 */
+    .spot-item {
+        padding: 15px;
+        margin-bottom: 10px;
+    }
+    
+    .spot-name {
+        font-size: 14px;
+    }
+    
+    .spot-info {
+        font-size: 11px;
+    }
+    
+    /* 模态窗口调整 */
+    .modal-content {
+        width: 95%;
+        margin: 20px auto;
+        max-height: 80vh;
+    }
+    
+    .modal-body {
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+}
+
+/* 平板端调整 */
+@media screen and (max-width: 1024px) and (min-width: 769px) {
+    .sidebar {
+        width: 300px;
+    }
+    
+    .search-section {
+        padding: 20px;
+    }
+    
+    .map-controls {
+        right: 15px;
+        width: 180px;
+    }
 } 
