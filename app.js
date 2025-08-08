@@ -80,9 +80,9 @@ function initMap() {
         if (feature && feature.get('spotData')) {
             var spotData = feature.get('spotData');
             
-            // 如果是迪士尼模式且点击的是特定主题区域，显示游玩项目
+            // 如果是迪士尼模式且点击的是特定主题区域，显示园区详情
             if (currentMode === 'disney' && (spotData.name === '魔雪奇缘世界' || spotData.name === '反斗奇兵大本营' || spotData.name === '迷离庄园' || spotData.name === '灰熊山谷' || spotData.name === '狮子王庆典' || spotData.name === '探险世界' || spotData.name === '奇妙梦想城堡' || spotData.name === '明日世界' || spotData.name === '幻想世界')) {
-                showAttractionsList(spotData.name);
+                showAreaDetails(spotData.name);
             } else {
                 showSpotDetails(spotData.id);
             }
@@ -927,6 +927,133 @@ function showSpotDetails(spotId) {
     document.getElementById('spotModal').style.display = 'flex';
 }
 
+// 获取园区信息
+function getAreaInfo(areaName) {
+    var areaInfoMap = {
+        '魔雪奇缘世界': {
+            icon: '❄️',
+            description: '以《冰雪奇缘》为主题的魔法世界，体验艾莎和安娜的冒险故事。',
+            rating: 4.8,
+            suggestedTime: '2-3小时',
+            tips: [
+                '建议先体验《冰雪奇缘》主题游乐设施',
+                '园区内有很多拍照打卡点',
+                '适合家庭和情侣游玩',
+                '建议在下午时段游玩，避开高峰'
+            ]
+        },
+        '反斗奇兵大本营': {
+            icon: '🤠',
+            description: '以《玩具总动员》为主题的互动体验区，与胡迪和巴斯光年一起冒险。',
+            rating: 4.6,
+            suggestedTime: '1.5-2小时',
+            tips: [
+                '适合儿童和家庭游玩',
+                '互动体验项目较多',
+                '建议携带相机记录精彩时刻',
+                '园区内设有休息区'
+            ]
+        },
+        '迷离庄园': {
+            icon: '🏰',
+            description: '神秘的维多利亚风格庄园，体验惊险刺激的探险之旅。',
+            rating: 4.7,
+            suggestedTime: '1-1.5小时',
+            tips: [
+                '适合喜欢刺激的游客',
+                '建议在光线充足时游玩',
+                '注意身高限制要求',
+                '园区内设有主题餐厅'
+            ]
+        },
+        '灰熊山谷': {
+            icon: '🐻',
+            description: '西部风格的冒险园区，体验矿车探险和淘金热潮。',
+            rating: 4.5,
+            suggestedTime: '1.5-2小时',
+            tips: [
+                '矿车项目较为刺激，注意安全',
+                '建议携带防晒用品',
+                '园区内有西部主题表演',
+                '适合喜欢冒险的游客'
+            ]
+        },
+        '狮子王庆典': {
+            icon: '🦁',
+            description: '以《狮子王》为主题的表演园区，观看震撼的舞台演出。',
+            rating: 4.9,
+            suggestedTime: '1-1.5小时',
+            tips: [
+                '建议提前查看演出时间表',
+                '演出期间请保持安静',
+                '园区内设有纪念品商店',
+                '适合所有年龄段游客'
+            ]
+        },
+        '探险世界': {
+            icon: '🌴',
+            description: '热带雨林主题的探险园区，体验丛林冒险和河流漂流。',
+            rating: 4.4,
+            suggestedTime: '2-2.5小时',
+            tips: [
+                '建议携带雨具，可能有水花飞溅',
+                '园区内设有多个休息点',
+                '适合喜欢自然探险的游客',
+                '注意园区内的安全提示'
+            ]
+        },
+        '奇妙梦想城堡': {
+            icon: '🏰',
+            description: '迪士尼标志性的城堡，是拍照打卡和观看烟花的最佳地点。',
+            rating: 4.9,
+            suggestedTime: '1-1.5小时',
+            tips: [
+                '建议在傍晚时分观看烟花表演',
+                '城堡前是拍照的最佳位置',
+                '园区内设有皇家主题餐厅',
+                '适合所有年龄段游客'
+            ]
+        },
+        '明日世界': {
+            icon: '🚀',
+            description: '未来科技主题园区，体验太空冒险和科幻游乐设施。',
+            rating: 4.6,
+            suggestedTime: '2-2.5小时',
+            tips: [
+                '建议先体验热门项目',
+                '园区内科技感十足，适合拍照',
+                '注意部分项目的身高限制',
+                '园区内设有未来主题餐厅'
+            ]
+        },
+        '幻想世界': {
+            icon: '✨',
+            description: '经典童话主题园区，体验迪士尼经典角色的魔法世界。',
+            rating: 4.7,
+            suggestedTime: '2-3小时',
+            tips: [
+                '适合儿童和家庭游玩',
+                '园区内有很多经典角色互动',
+                '建议携带相机记录精彩时刻',
+                '园区内设有童话主题餐厅'
+            ]
+        }
+    };
+    
+    return areaInfoMap[areaName] || {
+        icon: '🎠',
+        description: '迪士尼乐园精彩园区，体验独特的游乐设施和表演。',
+        rating: 4.5,
+        suggestedTime: '1-2小时',
+        tips: [
+            '建议提前规划游玩路线',
+            '注意查看各项目的开放时间',
+            '园区内设有多个休息区',
+            '适合所有年龄段游客'
+        ]
+    };
+}
+
 // 根据游玩项目ID获取所属区域名称
 function getAreaNameByAttractionId(attractionId) {
     if (attractionId.startsWith('frozen_')) {
@@ -1514,6 +1641,99 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // 显示游玩项目列表
+// 显示园区详情
+function showAreaDetails(areaName) {
+    // 获取园区信息
+    var areaInfo = getAreaInfo(areaName);
+    var attractions = getAttractionsByArea(areaName);
+    
+    // 检测是否为移动设备
+    var isMobile = window.innerWidth <= 768;
+    
+    // 更新模态窗口标题
+    document.getElementById('modalTitle').textContent = areaName;
+    document.getElementById('modalSubtitle').textContent = '园区详情';
+    
+    var modalBody = document.getElementById('modalBody');
+    
+    // 生成园区详情HTML
+    var areaHtml = `
+        <div class="area-details">
+            <div class="area-header">
+                <div class="area-icon">${areaInfo.icon}</div>
+                <div class="area-info">
+                    <h3>${areaName}</h3>
+                    <p class="area-description">${areaInfo.description}</p>
+                </div>
+            </div>
+            
+            <div class="area-stats">
+                <div class="stat-item">
+                    <span class="stat-icon">🎠</span>
+                    <span class="stat-label">游玩项目</span>
+                    <span class="stat-value">${attractions.length} 个</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-icon">⭐</span>
+                    <span class="stat-label">推荐指数</span>
+                    <span class="stat-value">${areaInfo.rating}/5.0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-icon">⏰</span>
+                    <span class="stat-label">建议游玩</span>
+                    <span class="stat-value">${areaInfo.suggestedTime}</span>
+                </div>
+            </div>
+            
+            <div class="area-actions">
+                <button class="area-action-btn primary" onclick="showAttractionsList('${areaName}')">
+                    🎠 查看游玩项目
+                </button>
+                <button class="area-action-btn secondary" onclick="showAreaMap('${areaName}')">
+                    🗺️ 园区地图
+                </button>
+            </div>
+            
+            <div class="area-tips">
+                <h4>💡 游玩建议</h4>
+                <ul>
+                    ${areaInfo.tips.map(tip => `<li>${tip}</li>`).join('')}
+                </ul>
+            </div>
+        </div>
+    `;
+    
+    modalBody.innerHTML = areaHtml;
+    
+    // 显示模态窗口
+    document.getElementById('spotModal').style.display = 'flex';
+}
+
+// 显示园区地图（简化版）
+function showAreaMap(areaName) {
+    // 更新模态窗口标题
+    document.getElementById('modalTitle').textContent = areaName + ' - 园区地图';
+    document.getElementById('modalSubtitle').textContent = '园区布局和设施位置';
+    
+    var modalBody = document.getElementById('modalBody');
+    
+    modalBody.innerHTML = `
+        <div class="area-map">
+            <div class="map-placeholder">
+                <div class="map-icon">🗺️</div>
+                <h3>${areaName}园区地图</h3>
+                <p>园区地图功能正在开发中，敬请期待！</p>
+                <button class="back-btn" onclick="showAreaDetails('${areaName}')">
+                    ← 返回园区详情
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // 显示模态窗口
+    document.getElementById('spotModal').style.display = 'flex';
+}
+
 function showAttractionsList(areaName) {
     var attractions = getAttractionsByArea(areaName);
     if (!attractions || attractions.length === 0) {
@@ -1533,6 +1753,7 @@ function showAttractionsList(areaName) {
     // 生成游玩项目列表HTML
     var attractionsHtml = `
         <div class="attractions-list">
+            ${isMobile ? '<div class="mobile-back-btn" onclick="showAreaDetails(\'' + areaName + '\')">← 返回园区详情</div>' : ''}
             <div class="attractions-header">
                 <h3>🎠 ${areaName}游玩项目</h3>
                 <p>共 ${attractions.length} 个项目${isMobile ? ' - 点击查看详情' : ''}</p>
