@@ -115,17 +115,17 @@ function initMap() {
 // 获取机位样式
 function getSpotStyle(feature) {
     var spotData = feature.get('spotData');
-    var type = spotData ? spotData.type : feature.get('type');
+    var shootingType = spotData ? spotData.shootingType : feature.get('shootingType');
     var status = spotData ? spotData.status : feature.get('status');
     
-    // 根据机位类型选择颜色
+    // 根据拍摄类型选择颜色
     var colors = {
-        'drone': { fill: '#667eea', stroke: '#5a6fd8', center: '#ffffff' },
-        'photo': { fill: '#f093fb', stroke: '#e91e63', center: '#ffffff' },
-        'video': { fill: '#4facfe', stroke: '#2196f3', center: '#ffffff' }
+        '建筑': { fill: '#ff69b4', stroke: '#ff1493', center: '#ffffff' },      // 粉红色
+        '创意': { fill: '#32cd32', stroke: '#228b22', center: '#ffffff' },      // 亮绿色  
+        '城市风光': { fill: '#1e3a8a', stroke: '#1e40af', center: '#ffffff' }   // 深蓝色
     };
     
-    var color = colors[type] || colors['drone'];
+    var color = colors[shootingType] || colors['建筑']; // 默认使用建筑类型颜色
     
     // 创建图钉图标
     var pinIcon = new ol.style.Icon({
