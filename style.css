@@ -48,6 +48,78 @@ body {
     align-items: center;
 }
 
+/* 模式切换按钮组 */
+.mode-switch {
+    display: flex;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 30px;
+    padding: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.mode-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 25px;
+    background: transparent;
+    color: #667eea;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.mode-btn.active {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+    transform: scale(1.05);
+}
+
+.mode-btn:hover:not(.active) {
+    background: rgba(102, 126, 234, 0.1);
+    transform: scale(1.02);
+}
+
+/* 移动端模式切换按钮（默认隐藏）*/
+.mobile-mode-switch {
+    display: none;
+    gap: 6px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 25px;
+    padding: 3px;
+    margin-bottom: 15px;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.mobile-mode-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 22px;
+    background: transparent;
+    color: #667eea;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.mobile-mode-btn.active {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.mobile-mode-btn:hover:not(.active) {
+    background: rgba(102, 126, 234, 0.1);
+}
+
 .nav-btn {
     padding: 10px 20px;
     border: none;
@@ -874,6 +946,11 @@ body {
         display: none;
     }
     
+    /* 显示移动端模式切换 */
+    .mobile-mode-switch {
+        display: flex !important;
+    }
+    
     /* 主容器调整 */
     .main-container {
         height: calc(100vh - 60px);
@@ -997,4 +1074,211 @@ body {
         right: 15px;
         width: 180px;
     }
-} 
+}
+
+/* 游玩项目列表样式 */
+.attractions-list {
+    padding: 20px 0;
+}
+
+.attractions-header {
+    text-align: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e8e8e8;
+}
+
+.attractions-header h3 {
+    color: #2c3e50;
+    font-size: 24px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.attractions-header p {
+    color: #7f8c8d;
+    font-size: 14px;
+}
+
+.attractions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.attraction-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e8e8e8;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.attraction-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.attraction-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.attraction-card:hover::before {
+    transform: scaleX(1);
+}
+
+.attraction-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.attraction-header h4 {
+    color: #2c3e50;
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+    flex: 1;
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.attraction-info {
+    margin-bottom: 15px;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.info-row:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.info-row .label {
+    color: #7f8c8d;
+    font-size: 13px;
+    font-weight: 500;
+    flex: 1;
+}
+
+.info-row .value {
+    color: #2c3e50;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: right;
+    flex: 1;
+}
+
+.attraction-description {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #e8e8e8;
+}
+
+.attraction-description p {
+    color: #5a6c7d;
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* 游玩项目详情样式 */
+.attraction-details {
+    padding: 20px 0;
+}
+
+.attraction-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.attraction-details-content {
+    margin-top: 25px;
+}
+
+.attraction-details-content .detail-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-radius: 10px;
+    border-left: 4px solid #667eea;
+}
+
+.attraction-details-content .detail-section h4 {
+    color: #2c3e50;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.attraction-details-content .detail-section p {
+    color: #5a6c7d;
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* 响应式设计 */
+@media screen and (max-width: 768px) {
+    .attractions-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .attraction-card {
+        padding: 15px;
+    }
+    
+    .attraction-header h4 {
+        font-size: 16px;
+    }
+    
+    .info-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+    
+    .info-row .value {
+        text-align: left;
+    }
+    
+    .attraction-info-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+}
