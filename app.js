@@ -777,6 +777,35 @@ function clearAllSpots() {
     showMessage('已清除所有标注点');
 }
 
+// 移动端侧边栏切换
+function toggleSidebar() {
+    var sidebar = document.getElementById('sidebar');
+    var menuBtn = document.getElementById('mobileMenuBtn');
+    
+    sidebar.classList.toggle('active');
+    menuBtn.classList.toggle('active');
+    
+    // 点击地图时自动关闭侧边栏
+    if (sidebar.classList.contains('active')) {
+        document.addEventListener('click', closeSidebarOnClickOutside);
+    } else {
+        document.removeEventListener('click', closeSidebarOnClickOutside);
+    }
+}
+
+// 点击外部关闭侧边栏
+function closeSidebarOnClickOutside(event) {
+    var sidebar = document.getElementById('sidebar');
+    var menuBtn = document.getElementById('mobileMenuBtn');
+    
+    // 如果点击的不是侧边栏或菜单按钮，则关闭侧边栏
+    if (!sidebar.contains(event.target) && !menuBtn.contains(event.target)) {
+        sidebar.classList.remove('active');
+        menuBtn.classList.remove('active');
+        document.removeEventListener('click', closeSidebarOnClickOutside);
+    }
+}
+
 // 获取当前标注点数量
 function getSpotCount() {
     return spotLayer.getSource().getFeatures().length;
