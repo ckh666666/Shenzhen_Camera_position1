@@ -1374,6 +1374,184 @@ body {
         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
     }
     
+    /* 园区详情样式 */
+    .area-details {
+        padding: 20px 0;
+    }
+    
+    .area-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e8e8e8;
+    }
+    
+    .area-icon {
+        font-size: 48px;
+        width: 60px;
+        text-align: center;
+    }
+    
+    .area-info h3 {
+        color: #2c3e50;
+        font-size: 24px;
+        margin-bottom: 8px;
+        font-weight: 600;
+    }
+    
+    .area-description {
+        color: #5a6c7d;
+        font-size: 14px;
+        line-height: 1.5;
+        margin: 0;
+    }
+    
+    .area-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    
+    .stat-item {
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        border-radius: 12px;
+        padding: 15px;
+        text-align: center;
+        border: 1px solid #e8e8e8;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .stat-icon {
+        font-size: 24px;
+        display: block;
+        margin-bottom: 8px;
+    }
+    
+    .stat-label {
+        color: #7f8c8d;
+        font-size: 12px;
+        display: block;
+        margin-bottom: 4px;
+    }
+    
+    .stat-value {
+        color: #2c3e50;
+        font-size: 16px;
+        font-weight: 600;
+        display: block;
+    }
+    
+    .area-actions {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    
+    .area-action-btn {
+        flex: 1;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 25px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .area-action-btn.primary {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+    }
+    
+    .area-action-btn.secondary {
+        background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+        color: #2c3e50;
+        border: 1px solid #dee2e6;
+    }
+    
+    .area-action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .area-tips {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        border-radius: 12px;
+        padding: 20px;
+        border-left: 4px solid #ffc107;
+    }
+    
+    .area-tips h4 {
+        color: #856404;
+        font-size: 16px;
+        margin-bottom: 12px;
+        font-weight: 600;
+    }
+    
+    .area-tips ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+    
+    .area-tips li {
+        color: #856404;
+        font-size: 13px;
+        line-height: 1.5;
+        margin-bottom: 6px;
+    }
+    
+    /* 园区地图样式 */
+    .area-map {
+        padding: 20px 0;
+    }
+    
+    .map-placeholder {
+        text-align: center;
+        padding: 40px 20px;
+    }
+    
+    .map-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+    }
+    
+    .map-placeholder h3 {
+        color: #2c3e50;
+        font-size: 20px;
+        margin-bottom: 10px;
+    }
+    
+    .map-placeholder p {
+        color: #7f8c8d;
+        font-size: 14px;
+        margin-bottom: 25px;
+    }
+    
+    .back-btn {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 20px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .back-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    
     .status-badge {
         font-size: 10px;
         padding: 2px 6px;
@@ -1404,6 +1582,83 @@ body {
     .attractions-header {
         margin-bottom: 15px;
         padding-bottom: 10px;
+    }
+    
+    /* 移动端园区详情优化 */
+    .area-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 10px;
+    }
+    
+    .area-icon {
+        font-size: 36px;
+        width: auto;
+    }
+    
+    .area-info h3 {
+        font-size: 20px;
+        margin-bottom: 5px;
+    }
+    
+    .area-description {
+        font-size: 13px;
+        line-height: 1.4;
+    }
+    
+    .area-stats {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .stat-item {
+        padding: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        text-align: left;
+    }
+    
+    .stat-icon {
+        font-size: 20px;
+        margin-bottom: 0;
+        display: inline;
+    }
+    
+    .stat-label {
+        font-size: 11px;
+        margin-bottom: 0;
+        display: inline;
+        margin-left: 8px;
+    }
+    
+    .stat-value {
+        font-size: 14px;
+        text-align: right;
+    }
+    
+    .area-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .area-action-btn {
+        padding: 10px 16px;
+        font-size: 13px;
+    }
+    
+    .area-tips {
+        padding: 15px;
+    }
+    
+    .area-tips h4 {
+        font-size: 14px;
+        margin-bottom: 10px;
+    }
+    
+    .area-tips li {
+        font-size: 12px;
+        margin-bottom: 5px;
     }
     
     /* 移动端滚动提示 */
