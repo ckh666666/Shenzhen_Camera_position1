@@ -806,6 +806,39 @@ function closeSidebarOnClickOutside(event) {
     }
 }
 
+// 移动端地图控制面板切换
+function toggleMapControls() {
+    var mapControls = document.getElementById('mapControls');
+    var controlsBtn = document.getElementById('mobileControlsBtn');
+    
+    mapControls.classList.toggle('active');
+    
+    // 点击外部时自动关闭控制面板
+    if (mapControls.classList.contains('active')) {
+        document.addEventListener('click', closeControlsOnClickOutside);
+        controlsBtn.style.background = 'rgba(102, 126, 234, 0.9)';
+        controlsBtn.style.color = 'white';
+    } else {
+        document.removeEventListener('click', closeControlsOnClickOutside);
+        controlsBtn.style.background = 'rgba(255, 255, 255, 0.95)';
+        controlsBtn.style.color = 'inherit';
+    }
+}
+
+// 点击外部关闭地图控制面板
+function closeControlsOnClickOutside(event) {
+    var mapControls = document.getElementById('mapControls');
+    var controlsBtn = document.getElementById('mobileControlsBtn');
+    
+    // 如果点击的不是控制面板或控制按钮，则关闭面板
+    if (!mapControls.contains(event.target) && !controlsBtn.contains(event.target)) {
+        mapControls.classList.remove('active');
+        controlsBtn.style.background = 'rgba(255, 255, 255, 0.95)';
+        controlsBtn.style.color = 'inherit';
+        document.removeEventListener('click', closeControlsOnClickOutside);
+    }
+}
+
 // 获取当前标注点数量
 function getSpotCount() {
     return spotLayer.getSource().getFeatures().length;
