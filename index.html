@@ -19,6 +19,15 @@
             <h1>深圳机位导航</h1>
         </div>
         <div class="nav-controls">
+            <!-- 模式切换按钮 -->
+            <div class="mode-switch">
+                <button class="mode-btn active" onclick="switchMode('shenzhen')" id="shenzhenModeBtn">
+                    📷 深圳机位
+                </button>
+                <button class="mode-btn" onclick="switchMode('disney')" id="disneyModeBtn">
+                    🏰 迪士尼导览
+                </button>
+            </div>
             <button class="nav-btn" onclick="showSpotManager()">机位管理</button>
             <button class="nav-btn" onclick="showRoutePlanner()">路线规划</button>
             <button class="nav-btn" onclick="showSettings()">设置</button>
@@ -38,6 +47,15 @@
         <div class="sidebar" id="sidebar">
             <!-- 搜索区域 -->
             <div class="search-section">
+                <!-- 移动端模式切换 -->
+                <div class="mobile-mode-switch">
+                    <button class="mobile-mode-btn active" onclick="switchMode('shenzhen')" id="mobileSzModeBtn">
+                        📷 深圳机位
+                    </button>
+                    <button class="mobile-mode-btn" onclick="switchMode('disney')" id="mobileDisneyModeBtn">
+                        🏰 迪士尼导览
+                    </button>
+                </div>
                 <div class="search-title">🔍 机位搜索</div>
                 <div class="search-box">
                     <input type="text" class="search-input" placeholder="搜索机位名称、区域或关键词..." id="searchInput">
