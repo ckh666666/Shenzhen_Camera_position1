@@ -927,6 +927,31 @@ function showSpotDetails(spotId) {
     document.getElementById('spotModal').style.display = 'flex';
 }
 
+// 根据游玩项目ID获取所属区域名称
+function getAreaNameByAttractionId(attractionId) {
+    if (attractionId.startsWith('frozen_')) {
+        return '魔雪奇缘世界';
+    } else if (attractionId.startsWith('toy_story_')) {
+        return '反斗奇兵大本营';
+    } else if (attractionId.startsWith('mystic_')) {
+        return '迷离庄园';
+    } else if (attractionId.startsWith('grizzly_')) {
+        return '灰熊山谷';
+    } else if (attractionId.startsWith('lion_king_')) {
+        return '狮子王庆典';
+    } else if (attractionId.startsWith('adventure_')) {
+        return '探险世界';
+    } else if (attractionId.startsWith('castle_')) {
+        return '奇妙梦想城堡';
+    } else if (attractionId.startsWith('tomorrowland_')) {
+        return '明日世界';
+    } else if (attractionId.startsWith('fantasyland_')) {
+        return '幻想世界';
+    } else {
+        return '魔雪奇缘世界'; // 默认
+    }
+}
+
 // 关闭模态窗口
 function closeSpotModal() {
     document.getElementById('spotModal').style.display = 'none';
@@ -1502,12 +1527,15 @@ function showAttractionsList(areaName) {
     
     var modalBody = document.getElementById('modalBody');
     
+    // 检测是否为移动设备
+    var isMobile = window.innerWidth <= 768;
+    
     // 生成游玩项目列表HTML
     var attractionsHtml = `
         <div class="attractions-list">
             <div class="attractions-header">
                 <h3>🎠 ${areaName}游玩项目</h3>
-                <p>共 ${attractions.length} 个项目</p>
+                <p>共 ${attractions.length} 个项目${isMobile ? ' - 点击查看详情' : ''}</p>
             </div>
             <div class="attractions-grid">
     `;
@@ -1518,6 +1546,29 @@ function showAttractionsList(areaName) {
         var statusColor = (attraction.status === 'available' && !isClosed) ? '#2ecc71' : '#e74c3c';
         var statusText = (attraction.status === 'available' && !isClosed) ? '开放' : '关闭';
         
+        // 为移动端优化显示内容
+        var displayInfo = isMobile ? [
+            { label: '📏 身高要求', value: attraction.heightRequirement },
+            { label: '⏰ 开放时间', value: attraction.operatingHours },
+            { label: '⭐ 评分', value: attraction.rating + '/5.0' }
+        ] : [
+            { label: '📏 身高要求', value: attraction.heightRequirement },
+            { label: '⏰ 开放时间', value: attraction.operatingHours },
+            { label: '🎯 刺激程度', value: attraction.intensity },
+            { label: '⭐ 评分', value: attraction.rating + '/5.0' },
+            { label: '⏳ 等待时间', value: attraction.waitTime }
+        ];
+        
+        var infoHtml = '';
+        displayInfo.forEach(function(info) {
+            infoHtml += `
+                <div class="info-row">
+                    <span class="label">${info.label}:</span>
+                    <span class="value">${info.value}</span>
+                </div>
+            `;
+        });
+        
         attractionsHtml += `
             <div class="attraction-card" onclick="showAttractionDetails('${attraction.id}')">
                 <div class="attraction-header">
@@ -1525,30 +1576,11 @@ function showAttractionsList(areaName) {
                     <span class="status-badge" style="background-color: ${statusColor}">${statusText}</span>
                 </div>
                 <div class="attraction-info">
-                    <div class="info-row">
-                        <span class="label">📏 身高要求:</span>
-                        <span class="value">${attraction.heightRequirement}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">⏰ 开放时间:</span>
-                        <span class="value">${attraction.operatingHours}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">🎯 刺激程度:</span>
-                        <span class="value">${attraction.intensity}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">⭐ 评分:</span>
-                        <span class="value">${attraction.rating}/5.0</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">⏳ 等待时间:</span>
-                        <span class="value">${attraction.waitTime}</span>
-                    </div>
+                    ${infoHtml}
                 </div>
-                <div class="attraction-description">
+                ${!isMobile ? `<div class="attraction-description">
                     <p>${attraction.description}</p>
-                </div>
+                </div>` : ''}
             </div>
         `;
     });
@@ -1562,6 +1594,22 @@ function showAttractionsList(areaName) {
     
     // 显示模态窗口
     document.getElementById('spotModal').style.display = 'flex';
+    
+    // 移动端显示滚动提示
+    if (isMobile && attractions.length > 3) {
+        setTimeout(function() {
+            var scrollHint = document.createElement('div');
+            scrollHint.className = 'scroll-hint';
+            scrollHint.textContent = '👆 上下滑动查看更多项目';
+            document.body.appendChild(scrollHint);
+            
+            setTimeout(function() {
+                if (scrollHint.parentNode) {
+                    scrollHint.parentNode.removeChild(scrollHint);
+                }
+            }, 3000);
+        }, 500);
+    }
 }
 
 // 显示游玩项目详情
@@ -1615,6 +1663,9 @@ function showAttractionDetails(attractionId) {
     var statusColor = (attraction.status === 'available' && !isClosed) ? '#2ecc71' : '#e74c3c';
     var statusText = (attraction.status === 'available' && !isClosed) ? '开放' : '关闭';
 
+    // 检测是否为移动设备
+    var isMobile = window.innerWidth <= 768;
+    
     // 更新模态窗口内容
     document.getElementById('modalTitle').textContent = attraction.name;
     document.getElementById('modalSubtitle').textContent = '游玩项目详情';
@@ -1623,6 +1674,7 @@ function showAttractionDetails(attractionId) {
     
     modalBody.innerHTML = `
         <div class="attraction-details">
+            ${isMobile ? '<div class="mobile-back-btn" onclick="showAttractionsList(\'' + getAreaNameByAttractionId(attractionId) + '\')">← 返回列表</div>' : ''}
             <div class="attraction-info-grid">
                 <div class="info-item">
                     <span class="info-icon">📏</span>
