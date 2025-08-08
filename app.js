@@ -4,6 +4,8 @@ var map;
 var spotLayer;
 var currentPosition = null;
 var baseLayers = {}; // 存储基础图层
+var currentMode = 'shenzhen'; // 当前模式: 'shenzhen' 或 'disney'
+var currentData = null; // 当前使用的数据集
 // spotData 和 spotImageMap 已在 data.js 中定义
 // 初始化地图
 function initMap() {
@@ -76,7 +78,14 @@ function initMap() {
         });
         
         if (feature && feature.get('spotData')) {
-            showSpotDetails(feature.get('spotData').id);
+            var spotData = feature.get('spotData');
+            
+            // 如果是迪士尼模式且点击的是特定主题区域，显示游玩项目
+            if (currentMode === 'disney' && (spotData.name === '魔雪奇缘世界' || spotData.name === '反斗奇兵大本营' || spotData.name === '迷离庄园' || spotData.name === '灰熊山谷' || spotData.name === '狮子王庆典' || spotData.name === '探险世界' || spotData.name === '奇妙梦想城堡' || spotData.name === '明日世界' || spotData.name === '幻想世界')) {
+                showAttractionsList(spotData.name);
+            } else {
+                showSpotDetails(spotData.id);
+            }
         }
     });
 
@@ -115,49 +124,90 @@ function initMap() {
 // 获取机位样式
 function getSpotStyle(feature) {
     var spotData = feature.get('spotData');
+    var category = spotData ? spotData.category : feature.get('category');
     var shootingType = spotData ? spotData.shootingType : feature.get('shootingType');
     var status = spotData ? spotData.status : feature.get('status');
     
-    // 根据拍摄类型选择颜色
-    var colors = {
-        '建筑': { fill: '#ff69b4', stroke: '#ff1493', center: '#ffffff' },      // 粉红色
-        '创意': { fill: '#32cd32', stroke: '#228b22', center: '#ffffff' },      // 亮绿色  
-        '城市风光': { fill: '#1e3a8a', stroke: '#1e40af', center: '#ffffff' }   // 深蓝色
-    };
+    var colors, styleIcon = '';
     
-    var color = colors[shootingType] || colors['建筑']; // 默认使用建筑类型颜色
+    // 根据当前模式选择颜色方案和图标
+    if (currentMode === 'disney') {
+        // 迪士尼模式：根据分类选择颜色和图标
+        var disneyColors = {
+            'transport': { fill: '#3498db', stroke: '#2980b9', center: '#ffffff', icon: '🚌' },
+            'themed_area': { fill: '#e74c3c', stroke: '#c0392b', center: '#ffffff', icon: '🎠' },
+            'entertainment': { fill: '#f39c12', stroke: '#e67e22', center: '#ffffff', icon: '🎭' },
+            'main_street': { fill: '#2ecc71', stroke: '#27ae60', center: '#ffffff', icon: '🏪' },
+            'classic_ride': { fill: '#9b59b6', stroke: '#8e44ad', center: '#ffffff', icon: '🎪' },
+            'photography': { fill: '#e67e22', stroke: '#d35400', center: '#ffffff', icon: '📷' }
+        };
+        
+        colors = disneyColors[category] || disneyColors['themed_area']; // 默认使用主题区域颜色
+        styleIcon = colors.icon;
+    } else {
+        // 深圳机位模式：根据拍摄类型选择颜色
+        var shenzhenColors = {
+            '建筑': { fill: '#ff69b4', stroke: '#ff1493', center: '#ffffff' },      // 粉红色
+            '创意': { fill: '#32cd32', stroke: '#228b22', center: '#ffffff' },      // 亮绿色  
+            '城市风光': { fill: '#1e3a8a', stroke: '#1e40af', center: '#ffffff' }   // 深蓝色
+        };
+        
+        colors = shenzhenColors[shootingType] || shenzhenColors['建筑']; // 默认使用建筑类型颜色
+    }
     
     // 创建图钉图标
-    var pinIcon = new ol.style.Icon({
-        anchor: [0.5, 1], // 图钉底部中心点
-        anchorXUnits: 'fraction',
-        anchorYUnits: 'fraction',
-        src: 'data:image/svg+xml;utf8,' + encodeURIComponent(`
-            <svg width="24" height="32" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 0C5.373 0 0 5.373 0 12c0 8.5 12 20 12 20s12-11.5 12-20c0-6.627-5.373-12-12-12z" 
-                      fill="${color.fill}" stroke="${color.stroke}" stroke-width="1"/>
-                <circle cx="12" cy="12" r="4" fill="${color.center}"/>
-                <circle cx="12" cy="12" r="2" fill="${color.fill}"/>
-            </svg>
-        `),
-        scale: 1.2
-    });
+    var pinIcon;
+    
+    if (currentMode === 'disney' && styleIcon) {
+        // 迪士尼模式使用emoji图标
+        pinIcon = new ol.style.Icon({
+            anchor: [0.5, 1],
+            anchorXUnits: 'fraction',
+            anchorYUnits: 'fraction',
+            src: 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+                <svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16 0C7.164 0 0 7.164 0 16c0 10.5 16 24 16 24s16-13.5 16-24c0-8.836-7.164-16-16-16z" 
+                          fill="${colors.fill}" stroke="${colors.stroke}" stroke-width="2"/>
+                    <circle cx="16" cy="16" r="12" fill="${colors.center}"/>
+                    <text x="16" y="22" font-family="Arial" font-size="16" text-anchor="middle" fill="${colors.fill}">${styleIcon}</text>
+                </svg>
+            `),
+            scale: 1.0
+        });
+    } else {
+        // 深圳模式使用传统图钉样式
+        pinIcon = new ol.style.Icon({
+            anchor: [0.5, 1], // 图钉底部中心点
+            anchorXUnits: 'fraction',
+            anchorYUnits: 'fraction',
+            src: 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+                <svg width="24" height="32" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 0C5.373 0 0 5.373 0 12c0 8.5 12 20 12 20s12-11.5 12-20c0-6.627-5.373-12-12-12z" 
+                          fill="${colors.fill}" stroke="${colors.stroke}" stroke-width="1"/>
+                    <circle cx="12" cy="12" r="4" fill="${colors.center}"/>
+                    <circle cx="12" cy="12" r="2" fill="${colors.fill}"/>
+                </svg>
+            `),
+            scale: 1.2
+        });
+    }
 
     return new ol.style.Style({
         image: pinIcon,
         // 添加文本标签
         text: new ol.style.Text({
             text: spotData ? spotData.name : '',
-            font: '12px Microsoft YaHei',
+            font: currentMode === 'disney' ? '11px Microsoft YaHei' : '12px Microsoft YaHei',
             fill: new ol.style.Fill({
-                color: '#2c3e50'
+                color: currentMode === 'disney' ? '#2c3e50' : '#2c3e50'
             }),
             stroke: new ol.style.Stroke({
                 color: 'white',
                 width: 2
             }),
-            offsetY: -35,
-            textAlign: 'center'
+            offsetY: currentMode === 'disney' ? -42 : -35,
+            textAlign: 'center',
+            maxWidth: currentMode === 'disney' ? 120 : 100
         })
     });
 }
@@ -168,7 +218,7 @@ function updateSpotList() {
     var spotList = document.getElementById('spotList');
     spotList.innerHTML = '';
 
-    spotData.forEach(function(spot) {
+    getCurrentData().forEach(function(spot) {
         var spotElement = createSpotElement(spot);
         spotList.appendChild(spotElement);
     });
@@ -194,32 +244,60 @@ function createSpotElement(spot) {
     var environmentIcon = spot.environment === 'indoor' ? '🏢' : '🌳';
     var environmentText = spot.environment === 'indoor' ? '室内' : '室外';
     
-    // 三脚架图标
-    var tripodIcon = spot.tripodRequired && spot.tripodRequired.includes('是') ? '🦵' : '📷';
-    var tripodText = spot.tripodRequired || '未指定';
+    // 根据模式显示不同的信息
+    var extraInfo = '';
+    var actionText = currentMode === 'disney' ? '添加到导览' : '添加到地图';
     
-    // 焦段信息
-    var focalLengthText = spot.focalLength || '未指定';
-    
-    // 地铁站信息
-    var metroText = spot.nearbyMetro || '未指定';
-    
-    div.innerHTML = `
-        <div class="spot-header">
-            <div>
-                <div class="spot-name">${spot.name}</div>
-                <div style="display: flex; gap: 8px; align-items: center; margin-top: 5px;">
-                    <span class="spot-type ${spot.type}">${getTypeText(spot.type)}</span>
-                    <span style="font-size: 11px; color: #667eea; background: rgba(102, 126, 234, 0.1); padding: 2px 6px; border-radius: 8px;">
-                        ${environmentIcon} ${environmentText}
-                    </span>
-                    ${spot.shootingType ? `<span style="font-size: 11px; color: #e74c3c; background: rgba(231, 76, 60, 0.1); padding: 2px 6px; border-radius: 8px;">
-                        📷 ${spot.shootingType}
-                    </span>` : ''}
+    if (currentMode === 'disney') {
+        // 迪士尼模式显示特有信息
+        var categoryIcon = disneyConfig.categories[spot.category] ? disneyConfig.categories[spot.category].icon : '📍';
+        var categoryName = disneyConfig.categories[spot.category] ? disneyConfig.categories[spot.category].name : spot.category;
+        
+        extraInfo = `
+            <p><i>📍</i> 距离: ${calculateDistance(spot.coordinates)}km</p>
+            <p><i>💰</i> 价格: ${spot.price}</p>
+            <p><i>⭐</i> 评分: ${spot.rating}/5.0</p>
+            <p><i>⏰</i> 开放时间: ${spot.operatingHours || spot.bestTime}</p>
+            <p><i>⏳</i> 等候时间: ${spot.waitTime || '无需等待'}</p>
+            <p><i>🌤️</i> 适宜天气: ${weatherIcons}</p>
+            <p><i>📝</i> ${spot.description}</p>
+        `;
+        
+        div.innerHTML = `
+            <div class="spot-header">
+                <div>
+                    <div class="spot-name">${spot.name}</div>
+                    <div style="display: flex; gap: 8px; align-items: center; margin-top: 5px;">
+                        <span class="spot-type ${spot.type}">${getTypeText(spot.type)}</span>
+                        <span style="font-size: 11px; color: #667eea; background: rgba(102, 126, 234, 0.1); padding: 2px 6px; border-radius: 8px;">
+                            ${environmentIcon} ${environmentText}
+                        </span>
+                        <span style="font-size: 11px; color: #e67e22; background: rgba(230, 126, 34, 0.1); padding: 2px 6px; border-radius: 8px;">
+                            ${categoryIcon} ${categoryName}
+                        </span>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="spot-info">
+            <div class="spot-info">
+                ${extraInfo}
+            </div>
+            <div class="spot-actions">
+                <button class="action-btn add-btn" onclick="addSpotToMap('${spot.id}')">
+                    ${actionText}
+                </button>
+                <button class="action-btn detail-btn" onclick="showSpotDetails('${spot.id}')">
+                    查看详情
+                </button>
+            </div>
+        `;
+    } else {
+        // 深圳机位模式显示原有信息
+        var tripodIcon = spot.tripodRequired && spot.tripodRequired.includes('是') ? '🦵' : '📷';
+        var tripodText = spot.tripodRequired || '未指定';
+        var focalLengthText = spot.focalLength || '未指定';
+        var metroText = spot.nearbyMetro || '未指定';
+        
+        extraInfo = `
             <p><i>📍</i> 距离: ${calculateDistance(spot.coordinates)}km</p>
             <p><i>💰</i> 价格: ${spot.price}</p>
             <p><i>⭐</i> 评分: ${spot.rating}/5.0</p>
@@ -229,16 +307,37 @@ function createSpotElement(spot) {
             <p><i>${tripodIcon}</i> 三脚架: ${tripodText}</p>
             <p><i>🚇</i> 地铁站: ${metroText}</p>
             <p><i>📝</i> ${spot.description}</p>
-        </div>
-        <div class="spot-actions">
-            <button class="action-btn add-btn" onclick="addSpotToMap('${spot.id}')">
-                添加到地图
-            </button>
-            <button class="action-btn detail-btn" onclick="showSpotDetails('${spot.id}')">
-                查看详情
-            </button>
-        </div>
-    `;
+        `;
+        
+        div.innerHTML = `
+            <div class="spot-header">
+                <div>
+                    <div class="spot-name">${spot.name}</div>
+                    <div style="display: flex; gap: 8px; align-items: center; margin-top: 5px;">
+                        <span class="spot-type ${spot.type}">${getTypeText(spot.type)}</span>
+                        <span style="font-size: 11px; color: #667eea; background: rgba(102, 126, 234, 0.1); padding: 2px 6px; border-radius: 8px;">
+                            ${environmentIcon} ${environmentText}
+                        </span>
+                        ${spot.shootingType ? `<span style="font-size: 11px; color: #e74c3c; background: rgba(231, 76, 60, 0.1); padding: 2px 6px; border-radius: 8px;">
+                            📷 ${spot.shootingType}
+                        </span>` : ''}
+                    </div>
+                </div>
+            </div>
+            <div class="spot-info">
+                ${extraInfo}
+            </div>
+            <div class="spot-actions">
+                <button class="action-btn add-btn" onclick="addSpotToMap('${spot.id}')">
+                    ${actionText}
+                </button>
+                <button class="action-btn detail-btn" onclick="showSpotDetails('${spot.id}')">
+                    查看详情
+                </button>
+            </div>
+        `;
+    }
+    
     return div;
 }
 
@@ -275,7 +374,7 @@ function calculateDistance(coordinates) {
 
 // 添加机位到地图
 function addSpotToMap(spotId) {
-    var spot = spotData.find(s => s.id === spotId);
+    var spot = getCurrentData().find(s => s.id === spotId);
     if (!spot) return;
 
     // 检查是否已经添加过该机位
@@ -285,7 +384,7 @@ function addSpotToMap(spotId) {
     });
 
     if (alreadyExists) {
-        showMessage('该机位已在地图上');
+        showMessage(currentMode === 'disney' ? '该景点已在导览地图上' : '该机位已在地图上');
         return;
     }
 
@@ -293,7 +392,8 @@ function addSpotToMap(spotId) {
         geometry: new ol.geom.Point(ol.proj.fromLonLat(spot.coordinates)),
         spotData: spot,
         type: spot.type,
-        status: spot.status
+        status: spot.status,
+        category: spot.category
     });
 
     spotLayer.getSource().addFeature(feature);
@@ -305,7 +405,7 @@ function addSpotToMap(spotId) {
     updateSpotCount();
     
     // 显示成功消息
-    showMessage('机位已添加到地图');
+    showMessage(currentMode === 'disney' ? '景点已添加到导览地图' : '机位已添加到地图');
 }
 
 // 确保机位图层在最上层
@@ -347,24 +447,56 @@ function searchSpots() {
     var distanceFilter = document.getElementById('distanceFilter').value;
     var priceFilter = document.getElementById('priceFilter').value;
 
-    var filteredSpots = spotData.filter(function(spot) {
+    var currentDataSet = getCurrentData();
+    
+    var filteredSpots = currentDataSet.filter(function(spot) {
+        // 关键词搜索 - 通用字段
         var matchesKeyword = spot.name.toLowerCase().includes(keyword) ||
             spot.description.toLowerCase().includes(keyword) ||
-            spot.address.toLowerCase().includes(keyword) ||
-            (spot.shootingType && spot.shootingType.toLowerCase().includes(keyword)) ||
-            (spot.focalLength && spot.focalLength.toLowerCase().includes(keyword)) ||
-            (spot.nearbyMetro && spot.nearbyMetro.toLowerCase().includes(keyword)) ||
-            (spot.shootingTips && spot.shootingTips.toLowerCase().includes(keyword)) ||
-            (spot.environmentType && spot.environmentType.toLowerCase().includes(keyword));
-        var matchesShootingType = shootingTypeFilter === 'all' || spot.shootingType === shootingTypeFilter;
-        var matchesFocalLength = focalLengthFilter === 'all' || getFocalLengthCategory(spot.focalLength) === focalLengthFilter;
+            spot.address.toLowerCase().includes(keyword);
+        
+        // 添加模式特定的关键词搜索字段
+        if (currentMode === 'disney') {
+            matchesKeyword = matchesKeyword ||
+                (spot.category && spot.category.toLowerCase().includes(keyword)) ||
+                (spot.waitTime && spot.waitTime.toLowerCase().includes(keyword)) ||
+                (spot.operatingHours && spot.operatingHours.toLowerCase().includes(keyword)) ||
+                (spot.tips && spot.tips.toLowerCase().includes(keyword));
+        } else {
+            matchesKeyword = matchesKeyword ||
+                (spot.shootingType && spot.shootingType.toLowerCase().includes(keyword)) ||
+                (spot.focalLength && spot.focalLength.toLowerCase().includes(keyword)) ||
+                (spot.nearbyMetro && spot.nearbyMetro.toLowerCase().includes(keyword)) ||
+                (spot.shootingTips && spot.shootingTips.toLowerCase().includes(keyword)) ||
+                (spot.environmentType && spot.environmentType.toLowerCase().includes(keyword));
+        }
+        
+        // 类型筛选
+        var matchesType;
+        if (currentMode === 'disney') {
+            // 迪士尼模式按分类筛选
+            matchesType = shootingTypeFilter === 'all' || spot.category === shootingTypeFilter;
+        } else {
+            // 深圳模式按拍摄类型筛选
+            matchesType = shootingTypeFilter === 'all' || spot.shootingType === shootingTypeFilter;
+        }
+        
+        // 焦段筛选（仅深圳模式）
+        var matchesFocalLength = currentMode === 'disney' ? true : 
+            (focalLengthFilter === 'all' || getFocalLengthCategory(spot.focalLength) === focalLengthFilter);
+            
+        // 环境筛选
         var matchesEnvironment = environmentFilter === 'all' || spot.environment === environmentFilter;
+        
+        // 天气筛选
         var matchesWeather = weatherFilter === 'all' || spot.weather.includes(weatherFilter);
+        
+        // 价格筛选
         var matchesPrice = priceFilter === 'all' || 
                          (priceFilter === 'free' && spot.price === '免费') ||
                          (priceFilter === 'paid' && spot.price !== '免费');
 
-        return matchesKeyword && matchesShootingType && matchesFocalLength && matchesEnvironment && matchesWeather && matchesPrice;
+        return matchesKeyword && matchesType && matchesFocalLength && matchesEnvironment && matchesWeather && matchesPrice;
     });
 
     updateSpotListWithFilter(filteredSpots);
@@ -381,42 +513,70 @@ function importFilteredSpots() {
     var distanceFilter = document.getElementById('distanceFilter').value;
     var priceFilter = document.getElementById('priceFilter').value;
 
+    var currentDataSet = getCurrentData();
+    
     // 使用相同的筛选逻辑
-    var filteredSpots = spotData.filter(function(spot) {
+    var filteredSpots = currentDataSet.filter(function(spot) {
+        // 关键词搜索 - 通用字段
         var matchesKeyword = spot.name.toLowerCase().includes(keyword) ||
             spot.description.toLowerCase().includes(keyword) ||
-            spot.address.toLowerCase().includes(keyword) ||
-            (spot.shootingType && spot.shootingType.toLowerCase().includes(keyword)) ||
-            (spot.focalLength && spot.focalLength.toLowerCase().includes(keyword)) ||
-            (spot.nearbyMetro && spot.nearbyMetro.toLowerCase().includes(keyword)) ||
-            (spot.shootingTips && spot.shootingTips.toLowerCase().includes(keyword)) ||
-            (spot.environmentType && spot.environmentType.toLowerCase().includes(keyword));
-        var matchesShootingType = shootingTypeFilter === 'all' || spot.shootingType === shootingTypeFilter;
-        var matchesFocalLength = focalLengthFilter === 'all' || getFocalLengthCategory(spot.focalLength) === focalLengthFilter;
+            spot.address.toLowerCase().includes(keyword);
+        
+        // 添加模式特定的关键词搜索字段
+        if (currentMode === 'disney') {
+            matchesKeyword = matchesKeyword ||
+                (spot.category && spot.category.toLowerCase().includes(keyword)) ||
+                (spot.waitTime && spot.waitTime.toLowerCase().includes(keyword)) ||
+                (spot.operatingHours && spot.operatingHours.toLowerCase().includes(keyword)) ||
+                (spot.tips && spot.tips.toLowerCase().includes(keyword));
+        } else {
+            matchesKeyword = matchesKeyword ||
+                (spot.shootingType && spot.shootingType.toLowerCase().includes(keyword)) ||
+                (spot.focalLength && spot.focalLength.toLowerCase().includes(keyword)) ||
+                (spot.nearbyMetro && spot.nearbyMetro.toLowerCase().includes(keyword)) ||
+                (spot.shootingTips && spot.shootingTips.toLowerCase().includes(keyword)) ||
+                (spot.environmentType && spot.environmentType.toLowerCase().includes(keyword));
+        }
+        
+        // 类型筛选
+        var matchesType;
+        if (currentMode === 'disney') {
+            matchesType = shootingTypeFilter === 'all' || spot.category === shootingTypeFilter;
+        } else {
+            matchesType = shootingTypeFilter === 'all' || spot.shootingType === shootingTypeFilter;
+        }
+        
+        // 焦段筛选（仅深圳模式）
+        var matchesFocalLength = currentMode === 'disney' ? true : 
+            (focalLengthFilter === 'all' || getFocalLengthCategory(spot.focalLength) === focalLengthFilter);
+            
         var matchesEnvironment = environmentFilter === 'all' || spot.environment === environmentFilter;
         var matchesWeather = weatherFilter === 'all' || spot.weather.includes(weatherFilter);
         var matchesPrice = priceFilter === 'all' || 
                          (priceFilter === 'free' && spot.price === '免费') ||
                          (priceFilter === 'paid' && spot.price !== '免费');
 
-        return matchesKeyword && matchesShootingType && matchesFocalLength && matchesEnvironment && matchesWeather && matchesPrice;
+        return matchesKeyword && matchesType && matchesFocalLength && matchesEnvironment && matchesWeather && matchesPrice;
     });
 
     if (filteredSpots.length === 0) {
-        showMessage('没有找到匹配的机位，请调整筛选条件');
+        showMessage(currentMode === 'disney' ? '没有找到匹配的景点，请调整筛选条件' : '没有找到匹配的机位，请调整筛选条件');
         return;
     }
 
     // 清除现有标注
     spotLayer.getSource().clear();
 
-    // 批量添加筛选后的机位到地图
+    // 批量添加筛选后的地点到地图
     var addedCount = 0;
     filteredSpots.forEach(function(spot) {
         if (spot.coordinates && spot.coordinates.length === 2) {
             var feature = new ol.Feature({
                 geometry: new ol.geom.Point(ol.proj.fromLonLat(spot.coordinates)),
-                spotData: spot
+                spotData: spot,
+                type: spot.type,
+                status: spot.status,
+                category: spot.category
             });
             spotLayer.getSource().addFeature(feature);
             addedCount++;
@@ -428,20 +588,21 @@ function importFilteredSpots() {
     updateStatusCounts();
     
     // 显示成功消息
-    showMessage(`成功导入 ${addedCount} 个机位到地图`);
+    var successMessage = currentMode === 'disney' ? `成功导入 ${addedCount} 个景点到地图` : `成功导入 ${addedCount} 个机位到地图`;
+    showMessage(successMessage);
     
-    // 如果只有一个机位，自动定位到该机位
+    // 如果只有一个地点，自动定位到该地点
     if (filteredSpots.length === 1) {
         var spot = filteredSpots[0];
         if (spot.coordinates && spot.coordinates.length === 2) {
             map.getView().animate({
                 center: ol.proj.fromLonLat(spot.coordinates),
-                zoom: 15,
+                zoom: currentMode === 'disney' ? 17 : 15,
                 duration: 1000
             });
         }
     } else if (filteredSpots.length > 1) {
-        // 如果有多个机位，调整视图以显示所有机位
+        // 如果有多个地点，调整视图以显示所有地点
         fitMapToSpots(filteredSpots);
     }
 }
@@ -468,7 +629,7 @@ function fitMapToSpots(spots) {
     }
 }
 
-// 更新筛选机位数量显示
+// 更新筛选地点数量显示
 function updateFilteredCount() {
     var keyword = document.getElementById('searchInput').value.toLowerCase();
     var shootingTypeFilter = document.getElementById('shootingTypeFilter').value;
@@ -478,24 +639,49 @@ function updateFilteredCount() {
     var distanceFilter = document.getElementById('distanceFilter').value;
     var priceFilter = document.getElementById('priceFilter').value;
 
-    var filteredSpots = spotData.filter(function(spot) {
+    var currentDataSet = getCurrentData();
+    
+    var filteredSpots = currentDataSet.filter(function(spot) {
+        // 关键词搜索 - 通用字段
         var matchesKeyword = spot.name.toLowerCase().includes(keyword) ||
             spot.description.toLowerCase().includes(keyword) ||
-            spot.address.toLowerCase().includes(keyword) ||
-            (spot.shootingType && spot.shootingType.toLowerCase().includes(keyword)) ||
-            (spot.focalLength && spot.focalLength.toLowerCase().includes(keyword)) ||
-            (spot.nearbyMetro && spot.nearbyMetro.toLowerCase().includes(keyword)) ||
-            (spot.shootingTips && spot.shootingTips.toLowerCase().includes(keyword)) ||
-            (spot.environmentType && spot.environmentType.toLowerCase().includes(keyword));
-        var matchesShootingType = shootingTypeFilter === 'all' || spot.shootingType === shootingTypeFilter;
-        var matchesFocalLength = focalLengthFilter === 'all' || getFocalLengthCategory(spot.focalLength) === focalLengthFilter;
+            spot.address.toLowerCase().includes(keyword);
+        
+        // 添加模式特定的关键词搜索字段
+        if (currentMode === 'disney') {
+            matchesKeyword = matchesKeyword ||
+                (spot.category && spot.category.toLowerCase().includes(keyword)) ||
+                (spot.waitTime && spot.waitTime.toLowerCase().includes(keyword)) ||
+                (spot.operatingHours && spot.operatingHours.toLowerCase().includes(keyword)) ||
+                (spot.tips && spot.tips.toLowerCase().includes(keyword));
+        } else {
+            matchesKeyword = matchesKeyword ||
+                (spot.shootingType && spot.shootingType.toLowerCase().includes(keyword)) ||
+                (spot.focalLength && spot.focalLength.toLowerCase().includes(keyword)) ||
+                (spot.nearbyMetro && spot.nearbyMetro.toLowerCase().includes(keyword)) ||
+                (spot.shootingTips && spot.shootingTips.toLowerCase().includes(keyword)) ||
+                (spot.environmentType && spot.environmentType.toLowerCase().includes(keyword));
+        }
+        
+        // 类型筛选
+        var matchesType;
+        if (currentMode === 'disney') {
+            matchesType = shootingTypeFilter === 'all' || spot.category === shootingTypeFilter;
+        } else {
+            matchesType = shootingTypeFilter === 'all' || spot.shootingType === shootingTypeFilter;
+        }
+        
+        // 焦段筛选（仅深圳模式）
+        var matchesFocalLength = currentMode === 'disney' ? true : 
+            (focalLengthFilter === 'all' || getFocalLengthCategory(spot.focalLength) === focalLengthFilter);
+            
         var matchesEnvironment = environmentFilter === 'all' || spot.environment === environmentFilter;
         var matchesWeather = weatherFilter === 'all' || spot.weather.includes(weatherFilter);
         var matchesPrice = priceFilter === 'all' || 
                          (priceFilter === 'free' && spot.price === '免费') ||
                          (priceFilter === 'paid' && spot.price !== '免费');
 
-        return matchesKeyword && matchesShootingType && matchesFocalLength && matchesEnvironment && matchesWeather && matchesPrice;
+        return matchesKeyword && matchesType && matchesFocalLength && matchesEnvironment && matchesWeather && matchesPrice;
     });
 
     document.getElementById('filteredCount').textContent = filteredSpots.length;
@@ -519,7 +705,7 @@ function updateSpotListWithFilter(filteredSpots) {
 
 // 显示机位详情
 function showSpotDetails(spotId) {
-    var spot = spotData.find(s => s.id === spotId);
+    var spot = getCurrentData().find(s => s.id === spotId);
     if (!spot) return;
 
     // 生成天气图标
@@ -535,7 +721,7 @@ function showSpotDetails(spotId) {
 
     var environmentText = spot.environment === 'indoor' ? '🏢室内' : '🌳室外';
 
-    // 获取机位图片路径
+    // 获取图片路径
     var imagePath = spot.imagePath || spotImageMap[spot.name] || '';
     var imageHtml = imagePath ? `
         <div class="image-container">
@@ -549,98 +735,193 @@ function showSpotDetails(spotId) {
     document.getElementById('modalSubtitle').textContent = spot.address;
     
     var modalBody = document.getElementById('modalBody');
-    modalBody.innerHTML = `
-        ${imageHtml}
-        <div class="spot-info-grid">
-            <div class="info-item">
-                <span class="info-icon">📍</span>
-                <div>
-                    <div class="info-label">详细地址</div>
-                    <div class="info-value">${spot.address}</div>
+    
+    // 根据模式显示不同的详情信息
+    if (currentMode === 'disney') {
+        // 迪士尼模式显示
+        var categoryInfo = disneyConfig.categories[spot.category];
+        var categoryText = categoryInfo ? `${categoryInfo.icon} ${categoryInfo.name}` : spot.category;
+        
+        modalBody.innerHTML = `
+            ${imageHtml}
+            <div class="spot-info-grid">
+                <div class="info-item">
+                    <span class="info-icon">📍</span>
+                    <div>
+                        <div class="info-label">详细地址</div>
+                        <div class="info-value">${spot.address}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">🎪</span>
+                    <div>
+                        <div class="info-label">景点类型</div>
+                        <div class="info-value">${categoryText}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">🏢</span>
+                    <div>
+                        <div class="info-label">环境类型</div>
+                        <div class="info-value">${environmentText}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">💰</span>
+                    <div>
+                        <div class="info-label">价格信息</div>
+                        <div class="info-value">${spot.price}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">⭐</span>
+                    <div>
+                        <div class="info-label">用户评分</div>
+                        <div class="info-value">${spot.rating}/5.0</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">⏰</span>
+                    <div>
+                        <div class="info-label">开放时间</div>
+                        <div class="info-value">${spot.operatingHours || spot.bestTime}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">⏳</span>
+                    <div>
+                        <div class="info-label">等候时间</div>
+                        <div class="info-value">${spot.waitTime || '无需等待'}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">🎯</span>
+                    <div>
+                        <div class="info-label">景点类型</div>
+                        <div class="info-value">${getTypeText(spot.type)}</div>
+                    </div>
                 </div>
             </div>
-            <div class="info-item">
-                <span class="info-icon">🎬</span>
-                <div>
-                    <div class="info-label">拍摄类型</div>
-                    <div class="info-value">${spot.shootingType || getTypeText(spot.type)}</div>
+            <div class="spot-details">
+                <div class="detail-section">
+                    <h4>🌤️ 适宜天气</h4>
+                    <p>${weatherIcons}</p>
+                </div>
+                <div class="detail-section">
+                    <h4>📝 景点描述</h4>
+                    <p>${spot.description}</p>
+                </div>
+                <div class="detail-section">
+                    <h4>🏗️ 配套设施</h4>
+                    <p>${spot.facilities.join('、')}</p>
+                </div>
+                <div class="detail-section">
+                    <h4>⚠️ 使用限制</h4>
+                    <p>${spot.restrictions.join('、')}</p>
+                </div>
+                ${spot.tips ? `
+                <div class="detail-section">
+                    <h4>💡 游览建议</h4>
+                    <p>${spot.tips}</p>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    } else {
+        // 深圳机位模式显示
+        modalBody.innerHTML = `
+            ${imageHtml}
+            <div class="spot-info-grid">
+                <div class="info-item">
+                    <span class="info-icon">📍</span>
+                    <div>
+                        <div class="info-label">详细地址</div>
+                        <div class="info-value">${spot.address}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">🎬</span>
+                    <div>
+                        <div class="info-label">拍摄类型</div>
+                        <div class="info-value">${spot.shootingType || getTypeText(spot.type)}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">🏢</span>
+                    <div>
+                        <div class="info-label">环境类型</div>
+                        <div class="info-value">${spot.environmentType || environmentText}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">💰</span>
+                    <div>
+                        <div class="info-label">价格信息</div>
+                        <div class="info-value">${spot.price}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">⭐</span>
+                    <div>
+                        <div class="info-label">用户评分</div>
+                        <div class="info-value">${spot.rating}/5.0</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">⏰</span>
+                    <div>
+                        <div class="info-label">最佳时间</div>
+                        <div class="info-value">${spot.bestTime}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">📷</span>
+                    <div>
+                        <div class="info-label">焦段建议</div>
+                        <div class="info-value">${spot.focalLength || '未指定'}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">🦵</span>
+                    <div>
+                        <div class="info-label">三脚架要求</div>
+                        <div class="info-value">${spot.tripodRequired || '未指定'}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">🚇</span>
+                    <div>
+                        <div class="info-label">附近地铁站</div>
+                        <div class="info-value">${spot.nearbyMetro || '未指定'}</div>
+                    </div>
                 </div>
             </div>
-            <div class="info-item">
-                <span class="info-icon">🏢</span>
-                <div>
-                    <div class="info-label">环境类型</div>
-                    <div class="info-value">${spot.environmentType || environmentText}</div>
+            <div class="spot-details">
+                <div class="detail-section">
+                    <h4>🌤️ 适宜天气</h4>
+                    <p>${weatherIcons}</p>
                 </div>
-            </div>
-            <div class="info-item">
-                <span class="info-icon">💰</span>
-                <div>
-                    <div class="info-label">价格信息</div>
-                    <div class="info-value">${spot.price}</div>
+                <div class="detail-section">
+                    <h4>📝 机位描述</h4>
+                    <p>${spot.description}</p>
                 </div>
-            </div>
-            <div class="info-item">
-                <span class="info-icon">⭐</span>
-                <div>
-                    <div class="info-label">用户评分</div>
-                    <div class="info-value">${spot.rating}/5.0</div>
+                <div class="detail-section">
+                    <h4>🏗️ 配套设施</h4>
+                    <p>${spot.facilities.join('、')}</p>
                 </div>
-            </div>
-            <div class="info-item">
-                <span class="info-icon">⏰</span>
-                <div>
-                    <div class="info-label">最佳时间</div>
-                    <div class="info-value">${spot.bestTime}</div>
+                <div class="detail-section">
+                    <h4>⚠️ 使用限制</h4>
+                    <p>${spot.restrictions.join('、')}</p>
                 </div>
-            </div>
-            <div class="info-item">
-                <span class="info-icon">📷</span>
-                <div>
-                    <div class="info-label">焦段建议</div>
-                    <div class="info-value">${spot.focalLength || '未指定'}</div>
+                ${spot.shootingTips ? `
+                <div class="detail-section">
+                    <h4>💡 拍摄建议</h4>
+                    <p>${spot.shootingTips}</p>
                 </div>
+                ` : ''}
             </div>
-            <div class="info-item">
-                <span class="info-icon">🦵</span>
-                <div>
-                    <div class="info-label">三脚架要求</div>
-                    <div class="info-value">${spot.tripodRequired || '未指定'}</div>
-                </div>
-            </div>
-            <div class="info-item">
-                <span class="info-icon">🚇</span>
-                <div>
-                    <div class="info-label">附近地铁站</div>
-                    <div class="info-value">${spot.nearbyMetro || '未指定'}</div>
-                </div>
-            </div>
-        </div>
-        <div class="spot-details">
-            <div class="detail-section">
-                <h4>🌤️ 适宜天气</h4>
-                <p>${weatherIcons}</p>
-            </div>
-            <div class="detail-section">
-                <h4>📝 机位描述</h4>
-                <p>${spot.description}</p>
-            </div>
-            <div class="detail-section">
-                <h4>🏗️ 配套设施</h4>
-                <p>${spot.facilities.join('、')}</p>
-            </div>
-            <div class="detail-section">
-                <h4>⚠️ 使用限制</h4>
-                <p>${spot.restrictions.join('、')}</p>
-            </div>
-            ${spot.shootingTips ? `
-            <div class="detail-section">
-                <h4>💡 拍摄建议</h4>
-                <p>${spot.shootingTips}</p>
-            </div>
-            ` : ''}
-        </div>
-    `;
+        `;
+    }
 
     // 显示模态窗口
     document.getElementById('spotModal').style.display = 'flex';
@@ -691,9 +972,10 @@ function getStatusText(status) {
 
 // 更新状态计数
 function updateStatusCounts() {
-    var available = spotData.filter(s => s.status === 'available').length;
-    var occupied = spotData.filter(s => s.status === 'occupied').length;
-    var maintenance = spotData.filter(s => s.status === 'maintenance').length;
+    var currentDataSet = getCurrentData();
+    var available = currentDataSet.filter(s => s.status === 'available').length;
+    var occupied = currentDataSet.filter(s => s.status === 'occupied').length;
+    var maintenance = currentDataSet.filter(s => s.status === 'maintenance').length;
 
     document.getElementById('availableCount').textContent = available;
     document.getElementById('occupiedCount').textContent = occupied;
@@ -1017,8 +1299,128 @@ function showMaxZoomMessage() {
     }, 3000);
 }
 
+// 模式切换函数
+function switchMode(mode) {
+    if (currentMode === mode) return;
+    
+    currentMode = mode;
+    
+    // 更新当前数据集
+    if (mode === 'disney') {
+        currentData = disneyData;
+    } else {
+        currentData = spotData;
+    }
+    
+    // 清除现有标注
+    spotLayer.getSource().clear();
+    
+    // 调整地图视野
+    if (mode === 'disney') {
+        map.getView().animate({
+            center: ol.proj.fromLonLat(disneyConfig.center),
+            zoom: disneyConfig.zoom,
+            duration: 1000
+        });
+    } else {
+        map.getView().animate({
+            center: ol.proj.fromLonLat([114.085947, 22.547]),
+            zoom: 12,
+            duration: 1000
+        });
+    }
+    
+    // 更新UI
+    updateModeUI();
+    updateSpotList();
+    updateStatusCounts();
+    updateFilteredCount();
+    
+    showMessage(mode === 'disney' ? '已切换到香港迪士尼导览模式' : '已切换到深圳机位导航模式');
+}
+
+// 更新模式UI
+function updateModeUI() {
+    var logoTitle = document.querySelector('.logo h1');
+    
+    // 更新模式按钮状态（桌面端和移动端）
+    var shenzhenBtn = document.getElementById('shenzhenModeBtn');
+    var disneyBtn = document.getElementById('disneyModeBtn');
+    var mobileSzBtn = document.getElementById('mobileSzModeBtn');
+    var mobileDisneyBtn = document.getElementById('mobileDisneyModeBtn');
+    
+    if (currentMode === 'disney') {
+        logoTitle.textContent = '香港迪士尼导览';
+        document.querySelector('.search-title').textContent = '🏰 景点搜索';
+        
+        // 更新桌面端按钮状态
+        if (shenzhenBtn && disneyBtn) {
+            shenzhenBtn.classList.remove('active');
+            disneyBtn.classList.add('active');
+        }
+        
+        // 更新移动端按钮状态
+        if (mobileSzBtn && mobileDisneyBtn) {
+            mobileSzBtn.classList.remove('active');
+            mobileDisneyBtn.classList.add('active');
+        }
+        
+        updateDisneyFilters();
+    } else {
+        logoTitle.textContent = '深圳机位导航';
+        document.querySelector('.search-title').textContent = '🔍 机位搜索';
+        
+        // 更新桌面端按钮状态
+        if (shenzhenBtn && disneyBtn) {
+            shenzhenBtn.classList.add('active');
+            disneyBtn.classList.remove('active');
+        }
+        
+        // 更新移动端按钮状态
+        if (mobileSzBtn && mobileDisneyBtn) {
+            mobileSzBtn.classList.add('active');
+            mobileDisneyBtn.classList.remove('active');
+        }
+        
+        updateShenzhenFilters();
+    }
+}
+
+// 更新深圳模式筛选器
+function updateShenzhenFilters() {
+    var shootingTypeFilter = document.getElementById('shootingTypeFilter');
+    shootingTypeFilter.innerHTML = `
+        <option value="all">所有拍摄类型</option>
+        <option value="建筑">建筑摄影</option>
+        <option value="创意">创意摄影</option>
+        <option value="城市风光">城市风光</option>
+    `;
+}
+
+// 更新迪士尼模式筛选器
+function updateDisneyFilters() {
+    var shootingTypeFilter = document.getElementById('shootingTypeFilter');
+    shootingTypeFilter.innerHTML = `
+        <option value="all">所有区域类型</option>
+        <option value="transport">交通接驳</option>
+        <option value="themed_area">主题区域</option>
+        <option value="entertainment">娱乐表演</option>
+        <option value="main_street">主街</option>
+        <option value="classic_ride">经典项目</option>
+        <option value="photography">拍摄点</option>
+    `;
+}
+
+// 获取当前数据
+function getCurrentData() {
+    return currentData || spotData;
+}
+
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
+    // 初始化当前数据
+    currentData = spotData;
+    
     initMap();
     
     // 初始化机位列表和状态计数
@@ -1084,4 +1486,229 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
-}); 
+});
+
+// 显示游玩项目列表
+function showAttractionsList(areaName) {
+    var attractions = getAttractionsByArea(areaName);
+    if (!attractions || attractions.length === 0) {
+        showMessage('该区域暂无游玩项目信息');
+        return;
+    }
+
+    // 更新模态窗口标题
+    document.getElementById('modalTitle').textContent = areaName + ' - 游玩项目';
+    document.getElementById('modalSubtitle').textContent = '点击项目查看详细信息';
+    
+    var modalBody = document.getElementById('modalBody');
+    
+    // 生成游玩项目列表HTML
+    var attractionsHtml = `
+        <div class="attractions-list">
+            <div class="attractions-header">
+                <h3>🎠 ${areaName}游玩项目</h3>
+                <p>共 ${attractions.length} 个项目</p>
+            </div>
+            <div class="attractions-grid">
+    `;
+    
+    attractions.forEach(function(attraction, index) {
+        // 检查开放时间，如果是"无使用时间段"则显示为关闭
+        var isClosed = attraction.operatingHours === '无使用时间段' || attraction.operatingHours === '无适用时段';
+        var statusColor = (attraction.status === 'available' && !isClosed) ? '#2ecc71' : '#e74c3c';
+        var statusText = (attraction.status === 'available' && !isClosed) ? '开放' : '关闭';
+        
+        attractionsHtml += `
+            <div class="attraction-card" onclick="showAttractionDetails('${attraction.id}')">
+                <div class="attraction-header">
+                    <h4>${attraction.name}</h4>
+                    <span class="status-badge" style="background-color: ${statusColor}">${statusText}</span>
+                </div>
+                <div class="attraction-info">
+                    <div class="info-row">
+                        <span class="label">📏 身高要求:</span>
+                        <span class="value">${attraction.heightRequirement}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">⏰ 开放时间:</span>
+                        <span class="value">${attraction.operatingHours}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">🎯 刺激程度:</span>
+                        <span class="value">${attraction.intensity}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">⭐ 评分:</span>
+                        <span class="value">${attraction.rating}/5.0</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">⏳ 等待时间:</span>
+                        <span class="value">${attraction.waitTime}</span>
+                    </div>
+                </div>
+                <div class="attraction-description">
+                    <p>${attraction.description}</p>
+                </div>
+            </div>
+        `;
+    });
+    
+    attractionsHtml += `
+            </div>
+        </div>
+    `;
+    
+    modalBody.innerHTML = attractionsHtml;
+    
+    // 显示模态窗口
+    document.getElementById('spotModal').style.display = 'flex';
+}
+
+// 显示游玩项目详情
+function showAttractionDetails(attractionId) {
+    // 根据项目ID判断属于哪个区域
+    var attractions;
+    if (attractionId.startsWith('frozen_')) {
+        attractions = getFrozenWorldAttractions();
+    } else if (attractionId.startsWith('toy_story_')) {
+        attractions = getToyStoryAttractions();
+    } else if (attractionId.startsWith('mystic_')) {
+        attractions = getMysticManorAttractions();
+    } else if (attractionId.startsWith('grizzly_')) {
+        attractions = getGrizzlyGulchAttractions();
+    } else if (attractionId.startsWith('lion_king_')) {
+        attractions = getLionKingAttractions();
+    } else if (attractionId.startsWith('adventure_')) {
+        attractions = getAdventureWorldAttractions();
+    } else if (attractionId.startsWith('castle_')) {
+        attractions = getCastleAttractions();
+    } else if (attractionId.startsWith('tomorrowland_')) {
+        attractions = getTomorrowlandAttractions();
+    } else if (attractionId.startsWith('fantasyland_')) {
+        attractions = getFantasylandAttractions();
+    } else {
+        attractions = getFrozenWorldAttractions(); // 默认
+    }
+    
+    var attraction = attractions.find(a => a.id === attractionId);
+    
+    if (!attraction) {
+        showMessage('未找到该项目信息');
+        return;
+    }
+
+    // 生成天气图标
+    var weatherIcons = attraction.weather.map(function(w) {
+        var weatherMap = {
+            'sunny': '☀️晴天',
+            'cloudy': '☁️多云',
+            'rainy': '🌧️雨天',
+            'snowy': '❄️雪天'
+        };
+        return weatherMap[w] || '🌤️其他';
+    }).join('、');
+
+    var environmentText = attraction.environment === 'indoor' ? '🏢室内' : '🌳室外';
+    
+    // 检查开放时间，如果是"无使用时间段"则显示为关闭
+    var isClosed = attraction.operatingHours === '无使用时间段' || attraction.operatingHours === '无适用时段';
+    var statusColor = (attraction.status === 'available' && !isClosed) ? '#2ecc71' : '#e74c3c';
+    var statusText = (attraction.status === 'available' && !isClosed) ? '开放' : '关闭';
+
+    // 更新模态窗口内容
+    document.getElementById('modalTitle').textContent = attraction.name;
+    document.getElementById('modalSubtitle').textContent = '游玩项目详情';
+    
+    var modalBody = document.getElementById('modalBody');
+    
+    modalBody.innerHTML = `
+        <div class="attraction-details">
+            <div class="attraction-info-grid">
+                <div class="info-item">
+                    <span class="info-icon">📏</span>
+                    <div>
+                        <div class="info-label">身高要求</div>
+                        <div class="info-value">${attraction.heightRequirement}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">🔴</span>
+                    <div>
+                        <div class="info-label">项目状态</div>
+                        <div class="info-value" style="color: ${statusColor}">${statusText}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">⏰</span>
+                    <div>
+                        <div class="info-label">开放时间</div>
+                        <div class="info-value">${attraction.operatingHours}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">🎯</span>
+                    <div>
+                        <div class="info-label">刺激程度</div>
+                        <div class="info-value">${attraction.intensity}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">⭐</span>
+                    <div>
+                        <div class="info-label">用户评分</div>
+                        <div class="info-value">${attraction.rating}/5.0</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">⏳</span>
+                    <div>
+                        <div class="info-label">等待时间</div>
+                        <div class="info-value">${attraction.waitTime}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">🏢</span>
+                    <div>
+                        <div class="info-label">环境类型</div>
+                        <div class="info-value">${environmentText}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">🌤️</span>
+                    <div>
+                        <div class="info-label">适宜天气</div>
+                        <div class="info-value">${weatherIcons}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">⏰</span>
+                    <div>
+                        <div class="info-label">最佳时间</div>
+                        <div class="info-value">${attraction.bestTime}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="attraction-details-content">
+                <div class="detail-section">
+                    <h4>📝 项目描述</h4>
+                    <p>${attraction.description}</p>
+                </div>
+                <div class="detail-section">
+                    <h4>🏗️ 配套设施</h4>
+                    <p>${attraction.facilities.join('、')}</p>
+                </div>
+                <div class="detail-section">
+                    <h4>⚠️ 使用限制</h4>
+                    <p>${attraction.restrictions.join('、')}</p>
+                </div>
+                <div class="detail-section">
+                    <h4>💡 游玩建议</h4>
+                    <p>${attraction.tips}</p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 显示模态窗口
+    document.getElementById('spotModal').style.display = 'flex';
+}
