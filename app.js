@@ -20,21 +20,19 @@ function initMap() {
                 maxZoom: 20
             })
         }),
-        // 高精度线划图图层
+        // 高精度线划图图层 - 使用OpenStreetMap作为备用
         vector: new ol.layer.Tile({
-            title: '高精度线划图',
-            source: new ol.source.XYZ({
-                url: 'http://t0.tianditu.com/DataServer?T=vec_w&x={x}&y={y}&l={z}&tk=1d109683f4d84198e37a38c442d68311',
-                wrapX: false,
-                minZoom: 5,
-                maxZoom: 18
+            title: '线划地图',
+            source: new ol.source.OSM({
+                url: 'https://{a-c}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                attributions: '© OpenStreetMap contributors'
             })
         }),
-        // 注记图层
+        // 注记图层 - 天地图注记（需要有效密钥）
         annotation: new ol.layer.Tile({
             title: '地图注记',
             source: new ol.source.XYZ({
-                url: 'http://t0.tianditu.com/DataServer?T=cva_w&x={x}&y={y}&l={z}&tk=1d109683f4d84198e37a38c442d68311',
+                url: 'https://t0.tianditu.gov.cn/DataServer?T=cva_w&x={x}&y={y}&l={z}&tk=1d109683f4d84198e37a38c442d68311',
                 wrapX: false,
                 minZoom: 5,
                 maxZoom: 18
