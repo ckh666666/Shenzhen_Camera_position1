@@ -1528,6 +1528,7 @@ function showPerformanceList() {
         <th>表演地点</th>
         <th>表演时间</th>
         <th>操作</th>
+        <th>状态</th>
     `;
     thead.appendChild(headerRow);
     table.appendChild(thead);
@@ -1535,10 +1536,20 @@ function showPerformanceList() {
     // 创建表体
     var tbody = document.createElement('tbody');
     
+    // 获取已看过的表演列表（从localStorage）
+    var watchedPerformances = JSON.parse(localStorage.getItem('wuhanOceanWatchedPerformances') || '[]');
+    
     // 遍历表演时间表数据，创建表格行
     if (typeof wuhanOceanPerformanceSchedule !== 'undefined' && wuhanOceanPerformanceSchedule.length > 0) {
-        wuhanOceanPerformanceSchedule.forEach(function(schedule) {
+        wuhanOceanPerformanceSchedule.forEach(function(schedule, index) {
             var row = document.createElement('tr');
+            var scheduleKey = schedule.time + '_' + schedule.name; // 使用时间和名称作为唯一标识
+            var isWatched = watchedPerformances.includes(scheduleKey);
+            
+            // 如果已看过，添加已看过类
+            if (isWatched) {
+                row.classList.add('performance-watched');
+            }
             
             row.innerHTML = `
                 <td>
@@ -1555,15 +1566,32 @@ function showPerformanceList() {
                         📍 添加
                     </button>
                 </td>
+                <td>
+                    <label class="performance-checkbox-label">
+                        <input type="checkbox" class="performance-checkbox" 
+                               data-schedule-key="${scheduleKey}"
+                               ${isWatched ? 'checked' : ''}
+                               onchange="togglePerformanceWatched('${scheduleKey}', this)">
+                        <span class="checkbox-text">已看</span>
+                    </label>
+                </td>
             `;
             tbody.appendChild(row);
         });
     } else {
         // 如果没有时间表数据，使用原有数据作为备用
+        var watchedPerformances = JSON.parse(localStorage.getItem('wuhanOceanWatchedPerformances') || '[]');
+        
         wuhanOceanShowData.forEach(function(show) {
             var row = document.createElement('tr');
             var showsText = show.shows ? show.shows.join('、') : '暂无信息';
             var timeText = show.operatingHours || show.bestTime || '按表演时间表';
+            var scheduleKey = show.id;
+            var isWatched = watchedPerformances.includes(scheduleKey);
+            
+            if (isWatched) {
+                row.classList.add('performance-watched');
+            }
             
             row.innerHTML = `
                 <td>
@@ -1579,6 +1607,15 @@ function showPerformanceList() {
                     <button class="table-action-btn" onclick="addPerformanceToMap('${show.id}')" title="添加到地图">
                         📍 添加
                     </button>
+                </td>
+                <td>
+                    <label class="performance-checkbox-label">
+                        <input type="checkbox" class="performance-checkbox" 
+                               data-schedule-key="${scheduleKey}"
+                               ${isWatched ? 'checked' : ''}
+                               onchange="togglePerformanceWatched('${scheduleKey}', this)">
+                        <span class="checkbox-text">已看</span>
+                    </label>
                 </td>
             `;
             tbody.appendChild(row);
@@ -1616,6 +1653,30 @@ function closePerformanceModal() {
     if (performanceModal) {
         performanceModal.style.display = 'none';
     }
+}
+
+// 切换表演已看状态
+function togglePerformanceWatched(scheduleKey, checkbox) {
+    var watchedPerformances = JSON.parse(localStorage.getItem('wuhanOceanWatchedPerformances') || '[]');
+    var row = checkbox.closest('tr');
+    
+    if (checkbox.checked) {
+        // 添加到已看列表
+        if (!watchedPerformances.includes(scheduleKey)) {
+            watchedPerformances.push(scheduleKey);
+        }
+        row.classList.add('performance-watched');
+    } else {
+        // 从已看列表移除
+        var index = watchedPerformances.indexOf(scheduleKey);
+        if (index > -1) {
+            watchedPerformances.splice(index, 1);
+        }
+        row.classList.remove('performance-watched');
+    }
+    
+    // 保存到localStorage
+    localStorage.setItem('wuhanOceanWatchedPerformances', JSON.stringify(watchedPerformances));
 }
 
 // 添加单个表演项目到地图
