@@ -193,7 +193,10 @@ var spotImageMap = {
     '汉京金融中心（深大北天桥上）': '../机位采集数据/汉京金融中心（深大北天桥上）_0.png',
     '望海路人行天桥': '../机位采集数据/望海路人行天桥_0.png',
     '全至科技创新园': '../机位采集数据/全至科技创新园_0.png',
-    '科创大厦': '../机位采集数据/科创大厦_1.png'
+    '科创大厦': '../机位采集数据/科创大厦_1.png',
+    '白鲸小镇': '机位采集数据/白鲸小镇.jpg',
+    '海底隧道': '机位采集数据/海底隧道.jpg',
+    '逍遥水母': '机位采集数据/逍遥水母.jpg'
 };
 
 // 机位数据 - 使用转换后的真实坐标
@@ -1049,6 +1052,444 @@ var spotData = [
         nearbyMetro: '朗下B口',
         shootingTips: '建议低机位拍摄科技矩阵大楼风格'
     }
+];
+
+// 苏州机位数据 - 使用WGS84坐标
+var suzhouSpotData = [
+    {
+        id: 'sz_suzhou_001',
+        name: '东沙湖-网红桥',
+        type: 'photo',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(31.340803,120.776176),
+        price: '免费',
+        description: '东沙湖网红桥视角，白天人少，适合航拍与地面拍摄',
+        facilities: ['步道', '湖景'],
+        restrictions: [],
+        rating: 4.2,
+        environment: 'outdoor',
+        weather: ['sunny', 'cloudy'],
+        bestTime: '白天',
+        address: '江苏省苏州市工业园区东沙湖片区',
+        imagePath: '机位采集数据/东沙湖-网红桥.jpg',
+        shootingType: '城市风光',
+        environmentType: '室外',
+        focalLength: '广角/长焦',
+        tripodRequired: '否',
+        nearbyMetro: '',
+        shootingTips: '建议航拍注意限飞区域，选择低人流时段拍摄'
+    },
+    {
+        id: 'sz_suzhou_002',
+        name: '斜塘老街 日落',
+        type: 'photo',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(31.302960,120.737675),
+        price: '免费',
+        description: '斜塘老街传统街区机位，适合日落拍摄',
+        facilities: ['老街', '河道'],
+        restrictions: [],
+        rating: 4.4,
+        environment: 'outdoor',
+        weather: ['sunny', 'cloudy'],
+        bestTime: '日落',
+        address: '江苏省苏州市工业园区斜塘老街',
+        imagePath: '机位采集数据/斜塘老街.jpg',
+        shootingType: '城市风光',
+        environmentType: '室外',
+        focalLength: '广角/中长焦',
+        tripodRequired: '是',
+        nearbyMetro: '',
+        shootingTips: '建议携带脚架，卡日落黄金时刻，注意人流'
+    },
+    {
+        id: 'sz_suzhou_003',
+        name: '苏州之眼摩天轮',
+        type: 'photo',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(31.314301,120.712871),
+        price: '免费',
+        description: '摩天轮地标视角，航拍与日出拍摄推荐',
+        facilities: ['地标', '湖景'],
+        restrictions: [],
+        rating: 4.3,
+        environment: 'outdoor',
+        weather: ['sunny', 'cloudy'],
+        bestTime: '日出',
+        address: '江苏省苏州市工业园区金鸡湖畔',
+        imagePath: '机位采集数据/苏州之眼摩天轮.jpg',
+        shootingType: '城市风光',
+        environmentType: '室外',
+        focalLength: '广角/中长焦',
+        tripodRequired: '否',
+        nearbyMetro: '',
+        shootingTips: '航拍留意限飞政策，日出前到位选好前景'
+    },
+    {
+        id: 'sz_suzhou_004',
+        name: '金鸡湖湖心亭',
+        type: 'photo',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(31.303743,120.693542),
+        price: '免费',
+        description: '湖心亭视角，白天航拍与地面都合适',
+        facilities: ['湖心亭', '步道'],
+        restrictions: [],
+        rating: 4.2,
+        environment: 'outdoor',
+        weather: ['sunny', 'cloudy'],
+        bestTime: '白天',
+        address: '江苏省苏州市工业园区金鸡湖',
+        imagePath: '机位采集数据/金鸡湖湖心亭.jpg',
+        shootingType: '城市风光',
+        environmentType: '室外',
+        focalLength: '广角/长焦',
+        tripodRequired: '否',
+        nearbyMetro: '',
+        shootingTips: '留意湖面风向与能见度，晨间更清透'
+    },
+    {
+        id: 'sz_suzhou_005',
+        name: '湖心亭-柳树',
+        type: 'photo',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(31.302937,120.693033),
+        price: '免费',
+        description: '湖心亭附近柳树前景机位',
+        facilities: ['湖景', '绿植'],
+        restrictions: [],
+        rating: 4.1,
+        environment: 'outdoor',
+        weather: ['sunny', 'cloudy'],
+        bestTime: '白天/傍晚',
+        address: '江苏省苏州市工业园区金鸡湖',
+        imagePath: '机位采集数据/湖心亭-柳树.jpg',
+        shootingType: '城市风光',
+        environmentType: '室外',
+        focalLength: '广角/中长焦',
+        tripodRequired: '否',
+        nearbyMetro: '',
+        shootingTips: '使用柳枝作前景，营造画面层次'
+    },
+    {
+        id: 'sz_suzhou_006',
+        name: '金水湾栈桥望湖角-二楼平台 日落',
+        type: 'photo',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(31.299165,120.710821),
+        price: '免费',
+        description: '金水湾栈桥二层平台机位，适合拍日落',
+        facilities: ['栈桥', '观景平台'],
+        restrictions: [],
+        rating: 4.3,
+        environment: 'outdoor',
+        weather: ['sunny', 'cloudy'],
+        bestTime: '日落',
+        address: '江苏省苏州市工业园区金水湾附近',
+        imagePath: '机位采集数据/金水湾栈桥望湖角-二楼平台.jpg',
+        shootingType: '城市风光',
+        environmentType: '室外',
+        focalLength: '广角/中长焦',
+        tripodRequired: '是',
+        nearbyMetro: '',
+        shootingTips: '提前踩点确定平台位置，带脚架等蓝调'
+    },
+    {
+        id: 'sz_suzhou_007',
+        name: '苏州市工业园区-东方之门',
+        type: 'photo',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(31.318918,120.683291),
+        price: '免费',
+        description: '东方之门地标机位，推荐日落时段',
+        facilities: ['地标', '城市天际线'],
+        restrictions: [],
+        rating: 4.5,
+        environment: 'outdoor',
+        weather: ['sunny', 'cloudy'],
+        bestTime: '日落',
+        address: '江苏省苏州市工业园区东方之门',
+        imagePath: '机位采集数据/苏州市工业园区-东方之门.jpg',
+        shootingType: '城市风光',
+        environmentType: '室外',
+        focalLength: '中长焦',
+        tripodRequired: '是',
+        nearbyMetro: '',
+        shootingTips: '使用中长焦压缩城市天际线，等待建筑亮灯'
+    }
+];
+
+// 苏州模式配置
+var suzhouConfig = {
+    name: '苏州机位导航',
+    center: convertGCJ02ToWGS84(31.304, 120.693), // 金鸡湖附近（腾讯GCJ-02 -> WGS84）
+    zoom: 12
+};
+
+// 武汉机位导航配置
+var wuhanConfig = {
+    name: '武汉机位导航',
+    center: [114.3617, 30.5280], // 武汉大学坐标（WGS84）
+    zoom: 14
+};
+
+// 武汉极地海洋公园导览配置
+var wuhanOceanConfig = {
+    name: '武汉极地海洋公园导览',
+    center: convertGCJ02ToWGS84(30.663265, 114.278723), // 极地海洋公园（GCJ-02 -> WGS84）
+    zoom: 18
+};
+
+// 武汉极地海洋公园机位数据
+var wuhanOceanSpotData = [
+    {
+        id: 'wuhan_ocean_001',
+        name: '白鲸小镇',
+        type: 'photo',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(30.662965,114.279479),
+        price: '付费',
+        description: '武汉极地海洋公园·白鲸小镇，室内水下观景最佳机位，适合拍摄白鲸互动与人文剪影。',
+        facilities: ['停车场', '餐饮', '休息区', '卫生间'],
+        restrictions: ['馆内安静拍摄', '避免闪光灯'],
+        rating: 4.7,
+        environment: 'indoor',
+        weather: ['sunny', 'cloudy', 'rainy'],
+        bestTime: '10:00-18:00',
+        address: '湖北省武汉市东西湖区金银潭大道96号 武汉极地海洋公园-白鲸小镇',
+        imagePath: '机位采集数据/白鲸小镇.jpg',
+        shootingType: '创意',
+        environmentType: '室内',
+        focalLength: '广角/中长焦',
+        tripodRequired: '否',
+        nearbyMetro: '宏图大道站（步行或换乘公交）',
+        shootingTips: '建议提前到场选择干净玻璃面；降低屏幕亮度避免反光；耐心等待白鲸靠近，与人影形成剪影构图。'
+    },
+    {
+        id: 'wuhan_ocean_002',
+        name: '海底隧道',
+        type: 'photo',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(30.662762,114.279045),
+        price: '付费',
+        description: '武汉极地海洋公园海底隧道机位，可拍摄鱼群环绕与梦幻光影效果。',
+        facilities: ['停车场', '餐饮', '休息区', '卫生间'],
+        restrictions: ['馆内安静拍摄', '避免闪光灯'],
+        rating: 4.6,
+        environment: 'indoor',
+        weather: ['sunny', 'cloudy', 'rainy'],
+        bestTime: '10:00-18:00',
+        address: '湖北省武汉市东西湖区金银潭大道96号 武汉极地海洋公园-海底隧道',
+        imagePath: '机位采集数据/海底隧道.jpg',
+        shootingType: '创意',
+        environmentType: '室内',
+        focalLength: '广角/中长焦',
+        tripodRequired: '否',
+        nearbyMetro: '宏图大道站（步行或换乘公交）',
+        shootingTips: '选择逆光方向拍摄，利用鱼群和光斑形成画面动感。'
+    },
+    {
+        id: 'wuhan_ocean_003',
+        name: '逍遥水母',
+        type: 'photo',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(30.663630,114.278755),
+        price: '付费',
+        description: '武汉极地海洋公园水母展区机位，适合拍摄梦幻蓝调和人文剪影。',
+        facilities: ['停车场', '餐饮', '休息区', '卫生间'],
+        restrictions: ['馆内安静拍摄', '避免闪光灯'],
+        rating: 4.7,
+        environment: 'indoor',
+        weather: ['sunny', 'cloudy', 'rainy'],
+        bestTime: '10:00-18:00',
+        address: '湖北省武汉市东西湖区金银潭大道96号 武汉极地海洋公园-水母展区',
+        imagePath: '机位采集数据/逍遥水母.jpg',
+        shootingType: '创意',
+        environmentType: '室内',
+        focalLength: '广角/中长焦',
+        tripodRequired: '否',
+        nearbyMetro: '宏图大道站（步行或换乘公交）',
+        shootingTips: '贴近展缸玻璃，注意避开反光，利用水母光线勾勒人像轮廓。'
+    }
+];
+
+// 武汉极地海洋公园表演项目数据
+var wuhanOceanShowData = [
+    {
+        id: 'wuhan_ocean_show_001',
+        name: '冰山舞台',
+        type: 'show',
+        category: 'performance',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(30.664003, 114.278111),
+        price: '付费',
+        description: '冰山舞台表演区，包含多个精彩表演项目。',
+        shows: ['音乐狂象', '企鹅秘语', '疯狂海盗', '海豹舞王'],
+        facilities: ['表演舞台', '观众席', '休息区'],
+        restrictions: ['按表演时间表'],
+        rating: 4.8,
+        environment: 'outdoor',
+        weather: ['sunny', 'cloudy'],
+        bestTime: '按表演时间表',
+        address: '湖北省武汉市东西湖区金银潭大道96号 武汉极地海洋公园-冰山舞台',
+        operatingHours: '按表演时间表',
+        tips: '建议提前查看表演时间表，提前到场选择最佳观看位置'
+    },
+    {
+        id: 'wuhan_ocean_show_002',
+        name: '海洋剧场',
+        type: 'show',
+        category: 'performance',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(30.663330, 114.279887),
+        price: '付费',
+        description: '海洋剧场大型表演，精彩绝伦的海洋动物表演。',
+        shows: ['极地奇缘'],
+        facilities: ['大型表演剧场', '观众席', '休息区'],
+        restrictions: ['按表演时间表'],
+        rating: 4.9,
+        environment: 'indoor',
+        weather: ['sunny', 'cloudy', 'rainy'],
+        bestTime: '按表演时间表',
+        address: '湖北省武汉市东西湖区金银潭大道96号 武汉极地海洋公园-海洋剧场',
+        operatingHours: '按表演时间表',
+        tips: '大型表演，建议提前30分钟入场，选择中间位置观看效果最佳'
+    },
+    {
+        id: 'wuhan_ocean_show_003',
+        name: '南极石广场',
+        type: 'show',
+        category: 'performance',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(30.663487, 114.278101),
+        price: '付费',
+        description: '南极石广场表演区，极地动物互动表演。',
+        shows: ['极地动物大狂欢'],
+        facilities: ['表演广场', '观众区', '休息区'],
+        restrictions: ['按表演时间表'],
+        rating: 4.7,
+        environment: 'outdoor',
+        weather: ['sunny', 'cloudy'],
+        bestTime: '按表演时间表',
+        address: '湖北省武汉市东西湖区金银潭大道96号 武汉极地海洋公园-南极石广场',
+        operatingHours: '按表演时间表',
+        tips: '户外表演，注意天气变化，建议携带遮阳用品'
+    },
+    {
+        id: 'wuhan_ocean_show_004',
+        name: '白鲸展厅',
+        type: 'show',
+        category: 'performance',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(30.662965, 114.279479),
+        price: '付费',
+        description: '白鲸展厅表演，与白鲸近距离互动。',
+        shows: ['白鲸之恋'],
+        facilities: ['白鲸展厅', '观众区', '休息区'],
+        restrictions: ['按表演时间表'],
+        rating: 4.8,
+        environment: 'indoor',
+        weather: ['sunny', 'cloudy', 'rainy'],
+        bestTime: '按表演时间表',
+        address: '湖北省武汉市东西湖区金银潭大道96号 武汉极地海洋公园-白鲸展厅',
+        operatingHours: '按表演时间表',
+        tips: '室内表演，建议提前到场，选择靠近玻璃的位置观看'
+    },
+    {
+        id: 'wuhan_ocean_show_005',
+        name: '海底隧道',
+        type: 'show',
+        category: 'performance',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(30.662762, 114.279045),
+        price: '付费',
+        description: '海底隧道喂食表演，观看海洋生物喂食互动。',
+        shows: ['隧道喂食秀'],
+        facilities: ['海底隧道', '观景区', '休息区'],
+        restrictions: ['按表演时间表'],
+        rating: 4.6,
+        environment: 'indoor',
+        weather: ['sunny', 'cloudy', 'rainy'],
+        bestTime: '按表演时间表',
+        address: '湖北省武汉市东西湖区金银潭大道96号 武汉极地海洋公园-海底隧道',
+        operatingHours: '按表演时间表',
+        tips: '隧道内观看，建议选择人少时段，可以更好地观察海洋生物'
+    },
+    {
+        id: 'wuhan_ocean_show_006',
+        name: '机械王国',
+        type: 'show',
+        category: 'performance',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(30.663542, 114.277360),
+        price: '付费',
+        description: '机械王国迎宾表演，精彩的机械互动秀。',
+        shows: ['鲸奇魔法迎宾秀'],
+        facilities: ['表演区', '观众区', '休息区'],
+        restrictions: ['按表演时间表'],
+        rating: 4.5,
+        environment: 'outdoor',
+        weather: ['sunny', 'cloudy'],
+        bestTime: '按表演时间表',
+        address: '湖北省武汉市东西湖区金银潭大道96号 武汉极地海洋公园-机械王国',
+        operatingHours: '按表演时间表',
+        tips: '迎宾表演，建议在开园时观看，体验最佳'
+    },
+    {
+        id: 'wuhan_ocean_show_007',
+        name: '海底两万里',
+        type: 'show',
+        category: 'performance',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(30.662693, 114.279034),
+        price: '付费',
+        description: '海底两万里表演区，美人鱼精彩表演。',
+        shows: ['守护美人鱼'],
+        facilities: ['表演区', '观众区', '休息区'],
+        restrictions: ['按表演时间表'],
+        rating: 4.7,
+        environment: 'indoor',
+        weather: ['sunny', 'cloudy', 'rainy'],
+        bestTime: '按表演时间表',
+        address: '湖北省武汉市东西湖区金银潭大道96号 武汉极地海洋公园-海底两万里',
+        operatingHours: '按表演时间表',
+        tips: '美人鱼表演，建议提前到场，选择前排位置观看效果更佳'
+    },
+    {
+        id: 'wuhan_ocean_show_008',
+        name: '欢乐秀场',
+        type: 'show',
+        category: 'performance',
+        status: 'available',
+        coordinates: convertGCJ02ToWGS84(30.663897, 114.279061),
+        price: '付费',
+        description: '欢乐秀场表演区，多种精彩表演项目。',
+        shows: ['欢乐星球秀', '海洋巫师之战'],
+        facilities: ['表演秀场', '观众席', '休息区'],
+        restrictions: ['按表演时间表'],
+        rating: 4.6,
+        environment: 'indoor',
+        weather: ['sunny', 'cloudy', 'rainy'],
+        bestTime: '按表演时间表',
+        address: '湖北省武汉市东西湖区金银潭大道96号 武汉极地海洋公园-欢乐秀场',
+        operatingHours: '按表演时间表',
+        tips: '多种表演项目，建议查看表演时间表，合理安排观看顺序'
+    }
+];
+
+// 武汉极地海洋公园表演时间表
+var wuhanOceanPerformanceSchedule = [
+    { time: '11:00', name: '音乐狂象+企鹅秘语', location: '冰山舞台', locationId: 'wuhan_ocean_show_001' },
+    { time: '11:30', name: '极地奇缘', location: '海洋剧场', locationId: 'wuhan_ocean_show_002' },
+    { time: '12:00', name: '疯狂海盗', location: '冰山舞台', locationId: 'wuhan_ocean_show_001' },
+    { time: '12:40', name: '白鲸之恋', location: '白鲸展厅', locationId: 'wuhan_ocean_show_004' },
+    { time: '13:00', name: '极地动物大狂欢', location: '南极石广场', locationId: 'wuhan_ocean_show_003' },
+    { time: '14:00', name: '海豹舞王', location: '冰山舞台', locationId: 'wuhan_ocean_show_001' },
+    { time: '14:30', name: '欢乐星球秀', location: '欢乐秀场', locationId: 'wuhan_ocean_show_008' },
+    { time: '15:30', name: '隧道喂食秀', location: '海底隧道', locationId: 'wuhan_ocean_show_005' },
+    { time: '17:00', name: '鲸奇魔法迎宾秀', location: '机械王国', locationId: 'wuhan_ocean_show_006' },
+    { time: '17:30', name: '守护美人鱼', location: '海底两万里', locationId: 'wuhan_ocean_show_007' },
+    { time: '19:20', name: '海洋巫师之战', location: '欢乐秀场', locationId: 'wuhan_ocean_show_008' }
 ];
 
 // 香港迪士尼导览数据
@@ -2182,4 +2623,4 @@ function getAttractionsByArea(areaName) {
         default:
             return [];
     }
-} 
+}
