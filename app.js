@@ -1306,12 +1306,49 @@ function clearAllSpots() {
 }
 
 // 移动端侧边栏切换
+// 切换移动端导航菜单
+function toggleMobileNav() {
+    var navPanel = document.getElementById('mobileNavPanel');
+    var navBtn = document.getElementById('mobileNavBtn');
+    var navOverlay = document.getElementById('mobileNavOverlay');
+    
+    if (navPanel && navBtn) {
+        var isActive = navPanel.classList.contains('active');
+        
+        if (isActive) {
+            // 关闭导航菜单
+            navPanel.classList.remove('active');
+            navBtn.classList.remove('active');
+            if (navOverlay) navOverlay.classList.remove('active');
+        } else {
+            // 打开导航菜单
+            navPanel.classList.add('active');
+            navBtn.classList.add('active');
+            if (navOverlay) navOverlay.classList.add('active');
+            
+            // 如果打开导航菜单，关闭侧边栏
+            var sidebar = document.getElementById('sidebar');
+            var menuBtn = document.getElementById('mobileMenuBtn');
+            if (sidebar) sidebar.classList.remove('active');
+            if (menuBtn) menuBtn.classList.remove('active');
+        }
+    }
+}
+
 function toggleSidebar() {
     var sidebar = document.getElementById('sidebar');
     var menuBtn = document.getElementById('mobileMenuBtn');
     
     sidebar.classList.toggle('active');
     menuBtn.classList.toggle('active');
+    
+    // 如果打开侧边栏，关闭导航菜单
+    if (sidebar.classList.contains('active')) {
+        var navPanel = document.getElementById('mobileNavPanel');
+        var navBtn = document.getElementById('mobileNavBtn');
+        if (navPanel) navPanel.classList.remove('active');
+        if (navBtn) navBtn.classList.remove('active');
+    }
     
     // 点击地图时自动关闭侧边栏
     if (sidebar.classList.contains('active')) {
@@ -1381,10 +1418,50 @@ function updateSpotCount() {
     }
 }
 
+// 处理视图控制按钮点击（根据模式调用不同功能）
+function handleViewControl() {
+    if (currentMode === 'wuhanOcean') {
+        showPerformanceList();
+    } else {
+        resetView();
+    }
+}
+
 // 重置视图
 function resetView() {
-    map.getView().setCenter(ol.proj.fromLonLat([114.085947, 22.547]));
-    map.getView().setZoom(12);
+    // 根据当前模式重置到对应的默认视图
+    if (currentMode === 'disney' && typeof disneyConfig !== 'undefined') {
+        map.getView().animate({
+            center: ol.proj.fromLonLat(disneyConfig.center),
+            zoom: disneyConfig.zoom,
+            duration: 1000
+        });
+    } else if (currentMode === 'suzhou' && typeof suzhouConfig !== 'undefined') {
+        map.getView().animate({
+            center: ol.proj.fromLonLat(suzhouConfig.center),
+            zoom: suzhouConfig.zoom,
+            duration: 1000
+        });
+    } else if (currentMode === 'wuhan' && typeof wuhanConfig !== 'undefined') {
+        map.getView().animate({
+            center: ol.proj.fromLonLat(wuhanConfig.center),
+            zoom: wuhanConfig.zoom,
+            duration: 1000
+        });
+    } else if (currentMode === 'wuhanOcean' && typeof wuhanOceanConfig !== 'undefined') {
+        map.getView().animate({
+            center: ol.proj.fromLonLat(wuhanOceanConfig.center),
+            zoom: wuhanOceanConfig.zoom,
+            duration: 1000
+        });
+    } else {
+        // 默认深圳视图
+        map.getView().animate({
+            center: ol.proj.fromLonLat([114.085947, 22.547]),
+            zoom: 12,
+            duration: 1000
+        });
+    }
 }
 
 // 定位我
@@ -1911,6 +1988,10 @@ function updateModeUI() {
 
     var searchSection = document.querySelector('.search-section');
 
+    // 获取视图控制按钮
+    var viewControlBtn = document.getElementById('viewControlBtn');
+    var performanceCheckInBtn = document.getElementById('performanceCheckInBtn');
+    
     if (currentMode === 'disney') {
         logoTitle.textContent = '香港迪士尼导览';
         document.querySelector('.search-title').textContent = '🏰 景点搜索';
@@ -1920,6 +2001,10 @@ function updateModeUI() {
         // 更新按钮状态
         if (disneyBtn) disneyBtn.classList.add('active');
         if (mobileDisneyBtn) mobileDisneyBtn.classList.add('active');
+        
+        // 显示重置视图按钮，隐藏表演打卡按钮
+        if (viewControlBtn) viewControlBtn.style.display = 'block';
+        if (performanceCheckInBtn) performanceCheckInBtn.style.display = 'none';
         
         updateDisneyFilters();
     } else if (currentMode === 'suzhou') {
@@ -1932,6 +2017,10 @@ function updateModeUI() {
         if (suzhouBtn) suzhouBtn.classList.add('active');
         if (mobileSuzhouBtn) mobileSuzhouBtn.classList.add('active');
         
+        // 显示重置视图按钮，隐藏表演打卡按钮
+        if (viewControlBtn) viewControlBtn.style.display = 'block';
+        if (performanceCheckInBtn) performanceCheckInBtn.style.display = 'none';
+        
         updateShenzhenFilters();
     } else if (currentMode === 'wuhan') {
         logoTitle.textContent = '武汉机位导航';
@@ -1942,6 +2031,10 @@ function updateModeUI() {
         // 更新按钮状态
         if (wuhanBtn) wuhanBtn.classList.add('active');
         if (mobileWuhanBtn) mobileWuhanBtn.classList.add('active');
+        
+        // 显示重置视图按钮，隐藏表演打卡按钮
+        if (viewControlBtn) viewControlBtn.style.display = 'block';
+        if (performanceCheckInBtn) performanceCheckInBtn.style.display = 'none';
         
         updateShenzhenFilters();
     } else if (currentMode === 'wuhanOcean') {
@@ -1954,15 +2047,33 @@ function updateModeUI() {
         if (wuhanOceanBtn) wuhanOceanBtn.classList.add('active');
         if (mobileWuhanOceanBtn) mobileWuhanOceanBtn.classList.add('active');
         
-        // 显示表演打卡按钮
+        // 显示表演打卡按钮（顶部导航栏）
         var showListBtn = document.getElementById('showListBtn');
         if (showListBtn) showListBtn.style.display = 'inline-block';
         
+        // 显示移动端表演打卡按钮
+        var mobileShowListBtn = document.getElementById('mobileShowListBtn');
+        if (mobileShowListBtn) mobileShowListBtn.style.display = 'block';
+        
+        // 在地图控制面板中显示表演打卡按钮，隐藏重置视图按钮
+        var viewControlBtn = document.getElementById('viewControlBtn');
+        var performanceCheckInBtn = document.getElementById('performanceCheckInBtn');
+        if (viewControlBtn) viewControlBtn.style.display = 'none';
+        if (performanceCheckInBtn) performanceCheckInBtn.style.display = 'block';
+        
         updateShenzhenFilters();
     } else {
-        // 隐藏表演打卡按钮
+        // 隐藏表演打卡按钮（顶部导航栏）
         var showListBtn = document.getElementById('showListBtn');
         if (showListBtn) showListBtn.style.display = 'none';
+        
+        // 隐藏移动端表演打卡按钮
+        var mobileShowListBtn = document.getElementById('mobileShowListBtn');
+        if (mobileShowListBtn) mobileShowListBtn.style.display = 'none';
+        
+        // 在地图控制面板中显示重置视图按钮，隐藏表演打卡按钮
+        if (viewControlBtn) viewControlBtn.style.display = 'block';
+        if (performanceCheckInBtn) performanceCheckInBtn.style.display = 'none';
         logoTitle.textContent = '深圳机位导航';
         document.querySelector('.search-title').textContent = '🔍 机位搜索';
         
@@ -2012,6 +2123,12 @@ document.addEventListener('DOMContentLoaded', function() {
     currentData = spotData;
     
     initMap();
+    
+    // 初始化视图控制按钮状态（默认显示重置视图按钮）
+    var viewControlBtn = document.getElementById('viewControlBtn');
+    var performanceCheckInBtn = document.getElementById('performanceCheckInBtn');
+    if (viewControlBtn) viewControlBtn.style.display = 'block';
+    if (performanceCheckInBtn) performanceCheckInBtn.style.display = 'none';
     
     // 初始化机位列表和状态计数
     updateSpotList();
