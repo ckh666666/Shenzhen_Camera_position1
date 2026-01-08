@@ -200,8 +200,8 @@ function getSpotStyle(feature) {
         image: pinIcon,
         // 添加文本标签
         text: new ol.style.Text({
-            text: spotData ? spotData.name : '',
-            font: currentMode === 'disney' ? '11px Microsoft YaHei' : '12px Microsoft YaHei',
+            text: spotData ? (spotData.displayName || spotData.name) : '',
+            font: currentMode === 'disney' ? '11px Microsoft YaHei' : (spotData && spotData.displayName ? '10px Microsoft YaHei' : '12px Microsoft YaHei'),
             fill: new ol.style.Fill({
                 color: currentMode === 'disney' ? '#2c3e50' : '#2c3e50'
             }),
@@ -209,9 +209,11 @@ function getSpotStyle(feature) {
                 color: 'white',
                 width: 2
             }),
-            offsetY: currentMode === 'disney' ? -42 : -35,
+            offsetY: currentMode === 'disney' ? -42 : (spotData && spotData.displayName ? -60 : -35),
             textAlign: 'center',
-            maxWidth: currentMode === 'disney' ? 120 : 100
+            maxWidth: currentMode === 'disney' ? 120 : (spotData && spotData.displayName ? 150 : 100),
+            overflow: true,
+            textBaseline: 'bottom'
         })
     });
 }
@@ -1710,8 +1712,21 @@ function showPerformanceList() {
         <p>⏰ 表演时间可能会根据季节和天气情况调整，建议以园区当日公告为准。</p>
     `;
     
+    // 添加一键导入按钮
+    var importSection = document.createElement('div');
+    importSection.className = 'performance-import-section';
+    var importBtn = document.createElement('button');
+    importBtn.className = 'performance-import-btn';
+    importBtn.innerHTML = '🎭 一键导入所有表演地点';
+    importBtn.onclick = function() {
+        importAllPerformanceLocations();
+        closePerformanceModal();
+    };
+    importSection.appendChild(importBtn);
+    
     modalBody.appendChild(tableContainer);
     modalBody.appendChild(infoText);
+    modalBody.appendChild(importSection);
     
     // 显示模态窗口
     performanceModal.style.display = 'flex';
@@ -1767,21 +1782,60 @@ function addPerformanceToMap(showId) {
     });
     
     if (existingFeature) {
-        showMessage('该表演项目已在地图上');
+        // 如果已存在，更新显示文本（包含该地点的所有表演和时间）
+        if (typeof wuhanOceanPerformanceSchedule !== 'undefined') {
+            var locationPerformances = wuhanOceanPerformanceSchedule.filter(function(schedule) {
+                return schedule.locationId === showId;
+            });
+            
+            if (locationPerformances.length > 0) {
+                var performancesText = locationPerformances.map(function(p) {
+                    return p.time + ' ' + p.name;
+                }).join('\n');
+                existingFeature.get('spotData').displayName = show.name + '\n' + performancesText;
+                existingFeature.get('spotData').performanceSchedule = locationPerformances;
+                existingFeature.changed();
+            }
+        }
+        showMessage('该表演地点已在地图上，已更新表演信息');
         return;
     }
+    
+    // 获取该地点的所有表演和时间
+    var displayName = show.name;
+    var performanceSchedule = [];
+    
+    if (typeof wuhanOceanPerformanceSchedule !== 'undefined') {
+        var locationPerformances = wuhanOceanPerformanceSchedule.filter(function(schedule) {
+            return schedule.locationId === showId;
+        });
+        
+        if (locationPerformances.length > 0) {
+            var performancesText = locationPerformances.map(function(p) {
+                return p.time + ' ' + p.name;
+            }).join('\n');
+            displayName = show.name + '\n' + performancesText;
+            performanceSchedule = locationPerformances;
+        }
+    }
+    
+    // 创建扩展的spotData
+    var extendedSpotData = Object.assign({}, show, {
+        displayName: displayName,
+        performanceSchedule: performanceSchedule
+    });
     
     // 创建要素
     var feature = new ol.Feature({
         geometry: new ol.geom.Point(ol.proj.fromLonLat(show.coordinates)),
-        spotData: show,
+        spotData: extendedSpotData,
         type: 'show',
         category: show.category
     });
     
     spotLayer.getSource().addFeature(feature);
     updateSpotCount();
-    showMessage('表演项目已添加到地图');
+    showMessage('表演地点已添加到地图');
     
     // 保持当前缩放级别，只移动中心点
     var currentZoom = map.getView().getZoom();
@@ -1793,6 +1847,105 @@ function addPerformanceToMap(showId) {
 }
 
 // 导入所有表演项目
+// 一键导入所有表演地点（按地点分组，显示该地点的所有表演和时间）
+function importAllPerformanceLocations() {
+    if (typeof wuhanOceanPerformanceSchedule === 'undefined' || wuhanOceanPerformanceSchedule.length === 0) {
+        showMessage('表演时间表数据未找到');
+        return;
+    }
+    
+    // 按地点分组表演
+    var locationGroups = {};
+    wuhanOceanPerformanceSchedule.forEach(function(schedule) {
+        var locationId = schedule.locationId;
+        if (!locationGroups[locationId]) {
+            locationGroups[locationId] = {
+                locationId: locationId,
+                location: schedule.location,
+                performances: []
+            };
+        }
+        locationGroups[locationId].performances.push({
+            time: schedule.time,
+            name: schedule.name
+        });
+    });
+    
+    var addedCount = 0;
+    var locationList = [];
+    
+    // 为每个地点创建标注
+    Object.keys(locationGroups).forEach(function(locationId) {
+        var group = locationGroups[locationId];
+        var locationData = wuhanOceanShowData.find(s => s.id === locationId);
+        
+        if (!locationData) return;
+        
+        // 检查是否已存在
+        var existingFeature = spotLayer.getSource().getFeatures().find(function(feature) {
+            return feature.get('spotData') && feature.get('spotData').id === locationId;
+        });
+        
+        if (existingFeature) {
+            // 如果已存在，更新显示文本
+            var performancesText = group.performances.map(function(p) {
+                return p.time + ' ' + p.name;
+            }).join('\n');
+            existingFeature.get('spotData').displayName = group.location + '\n' + performancesText;
+            existingFeature.changed();
+        } else {
+            // 创建新的标注
+            // 生成表演文本：按时间排序，每行显示"时间 表演名称"
+            var performancesText = group.performances.map(function(p) {
+                return p.time + ' ' + p.name;
+            }).join('\n');
+            
+            // 创建扩展的spotData，包含显示名称
+            var extendedSpotData = Object.assign({}, locationData, {
+                displayName: group.location + '\n' + performancesText,
+                performanceSchedule: group.performances
+            });
+            
+            var feature = new ol.Feature({
+                geometry: new ol.geom.Point(ol.proj.fromLonLat(locationData.coordinates)),
+                spotData: extendedSpotData,
+                type: 'show',
+                category: locationData.category
+            });
+            
+            spotLayer.getSource().addFeature(feature);
+            addedCount++;
+            locationList.push(group.location);
+        }
+    });
+    
+    updateSpotCount();
+    
+    if (addedCount > 0) {
+        // 调整视图以显示所有表演地点
+        var extent = ol.extent.createEmpty();
+        Object.keys(locationGroups).forEach(function(locationId) {
+            var locationData = wuhanOceanShowData.find(s => s.id === locationId);
+            if (locationData && locationData.coordinates && locationData.coordinates.length === 2) {
+                var point = ol.proj.fromLonLat(locationData.coordinates);
+                ol.extent.extend(extent, point);
+            }
+        });
+        
+        if (!ol.extent.isEmpty(extent)) {
+            ol.extent.scaleFromCenter(extent, 1.2);
+            map.getView().fit(extent, {
+                duration: 1000,
+                padding: [50, 50, 50, 50]
+            });
+        }
+        
+        showMessage(`成功导入 ${addedCount} 个表演地点到地图`);
+    } else {
+        showMessage('所有表演地点已在地图上');
+    }
+}
+
 function importAllPerformances() {
     var addedCount = 0;
     
