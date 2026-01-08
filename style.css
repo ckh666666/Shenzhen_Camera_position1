@@ -1681,3 +1681,467 @@ body {
         20%, 80% { opacity: 1; }
     }
 }
+
+.control-label {
+    display: block;
+    margin-bottom: 5px;
+    color: #333;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.control-input {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s ease;
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn.secondary {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.btn.secondary:hover {
+    box-shadow: 0 3px 10px rgba(245, 87, 108, 0.4);
+}
+
+.loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #667eea;
+    font-size: 16px;
+    display: none;
+    z-index: 1000;
+}
+
+.loading.show {
+    display: block;
+}
+
+.spinner {
+    border: 3px solid rgba(102, 126, 234, 0.3);
+    border-radius: 50%;
+    border-top: 3px solid #667eea;
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 8px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.info-panel {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 15px;
+    font-size: 11px;
+    color: #666;
+}
+
+.info-item {
+    margin-bottom: 4px;
+}
+
+.info-label {
+    font-weight: bold;
+    color: #333;
+}
+
+.error-message {
+    background: #ffebee;
+    color: #c62828;
+    padding: 8px;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-size: 12px;
+    display: none;
+}
+
+.error-message.show {
+    display: block;
+}
+
+.success-message {
+    background: #e8f5e8;
+    color: #2e7d32;
+    padding: 8px;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-size: 12px;
+    display: none;
+}
+
+.success-message.show {
+    display: block;
+}
+
+/* 距离显示面板 */
+.distance-panel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    font-family: 'Microsoft YaHei', Arial, sans-serif;
+    z-index: 1000;
+    min-width: 160px;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.distance-title {
+    font-size: 12px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 6px;
+    text-align: center;
+}
+
+.distance-value {
+    font-size: 16px;
+    font-weight: bold;
+    color: #667eea;
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+.distance-unit {
+    font-size: 10px;
+    color: #666;
+    text-align: center;
+}
+
+.distance-reset {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    margin-top: 6px;
+    width: 100%;
+    transition: all 0.3s ease;
+}
+
+.distance-reset:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+}
+
+/* 三维模型查看器容器样式 */
+.model-viewer-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #f0f0f0;
+    z-index: 2000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.5s ease-in-out;
+    display: flex;
+}
+
+.model-viewer-container.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.model-viewer-sidebar {
+    width: 300px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 20px;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
+}
+
+.model-viewer-main {
+    flex: 1;
+    position: relative;
+    background: #f0f0f0;
+}
+
+.model-viewer-main .canvas-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.model-viewer-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-user-drag: none;
+    -webkit-touch-callout: none;
+    cursor: grab;
+}
+
+.model-viewer-canvas:active {
+    cursor: grabbing;
+}
+
+.close-3d-viewer {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 50%;
+    font-size: 20px;
+    font-weight: bold;
+    color: #333;
+    cursor: pointer;
+    z-index: 2001;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-3d-viewer:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: scale(1.1);
+}
+
+.back-to-2d-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 25px;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    transition: all 0.3s ease;
+    z-index: 2001;
+}
+
+.back-to-2d-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.back-to-2d-btn:active {
+    transform: translateY(0);
+}
+
+/* 表演打卡模态窗口样式 */
+.performance-modal-content {
+    max-width: 900px;
+    width: 95%;
+}
+
+.performance-table-container {
+    margin-bottom: 20px;
+    overflow-x: auto;
+}
+
+.performance-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.performance-table thead {
+    background: linear-gradient(135deg, #ff6b35 0%, #e55a2b 100%);
+    color: white;
+}
+
+.performance-table th {
+    padding: 15px 20px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.performance-table tbody tr {
+    border-bottom: 1px solid #e8e8e8;
+    transition: all 0.3s ease;
+}
+
+.performance-table tbody tr:hover {
+    background: #f8f9fa;
+    transform: scale(1.01);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.performance-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.performance-table td {
+    padding: 15px 20px;
+    font-size: 14px;
+    color: #2c3e50;
+    vertical-align: middle;
+}
+
+.performance-name {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 4px;
+}
+
+.performance-location {
+    color: #7f8c8d;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.performance-location::before {
+    content: '📍';
+    font-size: 12px;
+}
+
+.performance-time {
+    color: #e74c3c;
+    font-weight: 600;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Courier New', monospace;
+}
+
+.performance-time::before {
+    content: '⏰';
+    font-size: 14px;
+}
+
+.table-action-btn {
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #ff6b35 0%, #e55a2b 100%);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
+}
+
+.table-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4);
+}
+
+.table-action-btn:active {
+    transform: translateY(0);
+}
+
+.performance-info {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    border-radius: 12px;
+    padding: 15px 20px;
+    border-left: 4px solid #ffc107;
+    margin-top: 20px;
+}
+
+.performance-info p {
+    margin: 8px 0;
+    color: #856404;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.performance-info p:first-child {
+    margin-top: 0;
+}
+
+.performance-info p:last-child {
+    margin-bottom: 0;
+}
+
+/* 响应式设计 - 表演表格 */
+@media screen and (max-width: 768px) {
+    .performance-modal-content {
+        width: 98%;
+        max-height: 90vh;
+    }
+    
+    .performance-table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .performance-table {
+        min-width: 600px;
+    }
+    
+    .performance-table th,
+    .performance-table td {
+        padding: 12px 15px;
+        font-size: 12px;
+    }
+    
+    .performance-table th {
+        font-size: 11px;
+        padding: 10px 15px;
+    }
+    
+    .table-action-btn {
+        padding: 6px 12px;
+        font-size: 11px;
+    }
+    
+    .performance-info {
+        padding: 12px 15px;
+    }
+    
+    .performance-info p {
+        font-size: 12px;
+        margin: 6px 0;
+    }
+}
