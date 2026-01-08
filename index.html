@@ -8,6 +8,11 @@
     <link href="style.css" rel="stylesheet" />
     <script src="../libs/ol5/ol.js"></script>
     <script src="../libs/jquery-1.11.2.min.js"></script>
+    <!-- Three.js 库用于三维模型查看器 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="data.js"></script>
     <script src="app.js"></script>
 </head>
@@ -24,12 +29,23 @@
                 <button class="mode-btn active" onclick="switchMode('shenzhen')" id="shenzhenModeBtn">
                     📷 深圳机位
                 </button>
+                <button class="mode-btn" onclick="switchMode('suzhou')" id="suzhouModeBtn">
+                    🏞️ 苏州机位
+                </button>
+                <button class="mode-btn" onclick="switchMode('wuhan')" id="wuhanModeBtn">
+                    🎓 武汉机位
+                </button>
+                <button class="mode-btn" onclick="switchMode('wuhanOcean')" id="wuhanOceanModeBtn">
+                    🐧 武汉极地海洋公园导览
+                </button>
                 <button class="mode-btn" onclick="switchMode('disney')" id="disneyModeBtn">
                     🏰 迪士尼导览
                 </button>
             </div>
             <button class="nav-btn" onclick="showSpotManager()">机位管理</button>
             <button class="nav-btn" onclick="showRoutePlanner()">路线规划</button>
+            <button class="nav-btn" id="showListBtn" onclick="showPerformanceList()" style="display:none;">表演打卡</button>
+            <button class="nav-btn" onclick="clearAllSpots()" title="清空地图上所有标注点">🗑️ 清空标注</button>
             <button class="nav-btn" onclick="showSettings()">设置</button>
         </div>
     </div>
@@ -51,6 +67,15 @@
                 <div class="mobile-mode-switch">
                     <button class="mobile-mode-btn active" onclick="switchMode('shenzhen')" id="mobileSzModeBtn">
                         📷 深圳机位
+                    </button>
+                    <button class="mobile-mode-btn" onclick="switchMode('suzhou')" id="mobileSuzhouModeBtn">
+                        🏞️ 苏州机位
+                    </button>
+                    <button class="mobile-mode-btn" onclick="switchMode('wuhan')" id="mobileWuhanModeBtn">
+                        🎓 武汉机位
+                    </button>
+                    <button class="mobile-mode-btn" onclick="switchMode('wuhanOcean')" id="mobileWuhanOceanModeBtn">
+                        🐧 武汉极地海洋公园导览
                     </button>
                     <button class="mobile-mode-btn" onclick="switchMode('disney')" id="mobileDisneyModeBtn">
                         🏰 迪士尼导览
@@ -114,6 +139,12 @@
         <!-- 地图容器 -->
         <div class="map-container">
             <div id="map"></div>
+            
+            <!-- 三维模型加载提示 -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                正在加载模型...
+            </div>
             
             <!-- 移动端地图控制按钮 -->
             <button class="mobile-controls-btn" onclick="toggleMapControls()" id="mobileControlsBtn">
@@ -193,6 +224,22 @@
             </div>
             <div class="image-modal-body">
                 <img id="fullImage" src="" alt="机位样片" class="full-image">
+            </div>
+        </div>
+    </div>
+
+    <!-- 表演打卡模态窗口 -->
+    <div class="modal-overlay" id="performanceModal">
+        <div class="modal-content performance-modal-content">
+            <div class="modal-header">
+                <div>
+                    <div class="modal-title">🎭 表演打卡</div>
+                    <div class="modal-subtitle">武汉极地海洋公园表演时间表</div>
+                </div>
+                <button class="modal-close" onclick="closePerformanceModal()">×</button>
+            </div>
+            <div class="modal-body" id="performanceModalBody">
+                <!-- 表演表格将通过JavaScript动态生成 -->
             </div>
         </div>
     </div>
