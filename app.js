@@ -4,7 +4,7 @@ var map;
 var spotLayer;
 var currentPosition = null;
 var baseLayers = {}; // 存储基础图层
-var currentMode = 'shenzhen'; // 当前模式: 'shenzhen' 或 'disney'
+var currentMode = 'shenzhen'; // 当前模式: 'shenzhen', 'suzhou', 'wuhan', 'wuhanOcean' 或 'disney'
 var currentData = null; // 当前使用的数据集
 // spotData 和 spotImageMap 已在 data.js 中定义
 // 初始化地图
@@ -144,6 +144,10 @@ function getSpotStyle(feature) {
         
         colors = disneyColors[category] || disneyColors['themed_area']; // 默认使用主题区域颜色
         styleIcon = colors.icon;
+    } else if (currentMode === 'wuhanOcean' && spotData && spotData.type === 'show') {
+        // 武汉极地海洋公园表演项目：使用橙色区分
+        colors = { fill: '#ff6b35', stroke: '#e55a2b', center: '#ffffff' }; // 橙色
+        styleIcon = '🎭';
     } else {
         // 深圳机位模式：根据拍摄类型选择颜色
         var shenzhenColors = {
@@ -158,8 +162,8 @@ function getSpotStyle(feature) {
     // 创建图钉图标
     var pinIcon;
     
-    if (currentMode === 'disney' && styleIcon) {
-        // 迪士尼模式使用emoji图标
+    if ((currentMode === 'disney' && styleIcon) || (currentMode === 'wuhanOcean' && spotData && spotData.type === 'show' && styleIcon)) {
+        // 迪士尼模式或武汉极地海洋公园表演项目使用emoji图标
         pinIcon = new ol.style.Icon({
             anchor: [0.5, 1],
             anchorXUnits: 'fraction',
@@ -595,9 +599,19 @@ function importFilteredSpots() {
     if (filteredSpots.length === 1) {
         var spot = filteredSpots[0];
         if (spot.coordinates && spot.coordinates.length === 2) {
+            var currentZoom = map.getView().getZoom();
+            var targetZoom;
+            if (currentMode === 'disney') {
+                targetZoom = 17;
+            } else if (currentMode === 'wuhanOcean') {
+                // 武汉极地海洋公园模式下保持当前缩放级别（例如 18）
+                targetZoom = currentZoom;
+            } else {
+                targetZoom = 15;
+            }
             map.getView().animate({
                 center: ol.proj.fromLonLat(spot.coordinates),
-                zoom: currentMode === 'disney' ? 17 : 15,
+                zoom: targetZoom,
                 duration: 1000
             });
         }
@@ -705,7 +719,11 @@ function updateSpotListWithFilter(filteredSpots) {
 
 // 显示机位详情
 function showSpotDetails(spotId) {
+    // 先尝试从当前数据中查找，如果找不到，尝试从表演项目数据中查找
     var spot = getCurrentData().find(s => s.id === spotId);
+    if (!spot && currentMode === 'wuhanOcean') {
+        spot = wuhanOceanShowData.find(s => s.id === spotId);
+    }
     if (!spot) return;
 
     // 生成天气图标
@@ -737,7 +755,83 @@ function showSpotDetails(spotId) {
     var modalBody = document.getElementById('modalBody');
     
     // 根据模式显示不同的详情信息
-    if (currentMode === 'disney') {
+    if (currentMode === 'wuhanOcean' && spot.type === 'show') {
+        // 武汉极地海洋公园表演项目显示
+        modalBody.innerHTML = `
+            <div class="spot-info-grid">
+                <div class="info-item">
+                    <span class="info-icon">📍</span>
+                    <div>
+                        <div class="info-label">详细地址</div>
+                        <div class="info-value">${spot.address}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">🎭</span>
+                    <div>
+                        <div class="info-label">表演类型</div>
+                        <div class="info-value">${spot.category === 'performance' ? '表演项目' : spot.category}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">🏢</span>
+                    <div>
+                        <div class="info-label">环境类型</div>
+                        <div class="info-value">${environmentText}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">💰</span>
+                    <div>
+                        <div class="info-label">价格信息</div>
+                        <div class="info-value">${spot.price}</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">⭐</span>
+                    <div>
+                        <div class="info-label">用户评分</div>
+                        <div class="info-value">${spot.rating}/5.0</div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">⏰</span>
+                    <div>
+                        <div class="info-label">表演时间</div>
+                        <div class="info-value">${spot.operatingHours || spot.bestTime}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="spot-details">
+                <div class="detail-section">
+                    <h4>🎭 表演节目</h4>
+                    <p>${spot.shows ? spot.shows.join('、') : '暂无信息'}</p>
+                </div>
+                <div class="detail-section">
+                    <h4>🌤️ 适宜天气</h4>
+                    <p>${weatherIcons}</p>
+                </div>
+                <div class="detail-section">
+                    <h4>📝 项目描述</h4>
+                    <p>${spot.description}</p>
+                </div>
+                <div class="detail-section">
+                    <h4>🏗️ 配套设施</h4>
+                    <p>${spot.facilities ? spot.facilities.join('、') : '暂无信息'}</p>
+                </div>
+                <div class="detail-section">
+                    <h4>⚠️ 使用限制</h4>
+                    <p>${spot.restrictions ? spot.restrictions.join('、') : '无特殊限制'}</p>
+                </div>
+                ${spot.tips ? `
+                <div class="detail-section">
+                    <h4>💡 观看建议</h4>
+                    <p>${spot.tips}</p>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    } else if (currentMode === 'disney') {
         // 迪士尼模式显示
         var categoryInfo = disneyConfig.categories[spot.category];
         var categoryText = categoryInfo ? `${categoryInfo.icon} ${categoryInfo.name}` : spot.category;
@@ -1399,6 +1493,216 @@ function showSettings() {
     showMessage('设置功能开发中...');
 }
 
+// 显示表演项目列表
+function showPerformanceList() {
+    if (currentMode !== 'wuhanOcean') {
+        showMessage('此功能仅在武汉极地海洋公园导览模式下可用');
+        return;
+    }
+    
+    // 打开表演打卡模态窗口
+    var performanceModal = document.getElementById('performanceModal');
+    var modalBody = document.getElementById('performanceModalBody');
+    
+    if (!performanceModal || !modalBody) {
+        showMessage('模态窗口元素未找到');
+        return;
+    }
+    
+    // 清空模态窗口内容
+    modalBody.innerHTML = '';
+    
+    // 创建表格容器
+    var tableContainer = document.createElement('div');
+    tableContainer.className = 'performance-table-container';
+    
+    // 创建表格
+    var table = document.createElement('table');
+    table.className = 'performance-table';
+    
+    // 创建表头
+    var thead = document.createElement('thead');
+    var headerRow = document.createElement('tr');
+    headerRow.innerHTML = `
+        <th>表演名称</th>
+        <th>表演地点</th>
+        <th>表演时间</th>
+        <th>操作</th>
+    `;
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    
+    // 创建表体
+    var tbody = document.createElement('tbody');
+    
+    // 遍历表演时间表数据，创建表格行
+    if (typeof wuhanOceanPerformanceSchedule !== 'undefined' && wuhanOceanPerformanceSchedule.length > 0) {
+        wuhanOceanPerformanceSchedule.forEach(function(schedule) {
+            var row = document.createElement('tr');
+            
+            row.innerHTML = `
+                <td>
+                    <div class="performance-name">${schedule.name}</div>
+                </td>
+                <td>
+                    <div class="performance-location">${schedule.location}</div>
+                </td>
+                <td>
+                    <div class="performance-time">${schedule.time}</div>
+                </td>
+                <td>
+                    <button class="table-action-btn" onclick="addPerformanceToMap('${schedule.locationId}')" title="添加到地图">
+                        📍 添加
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    } else {
+        // 如果没有时间表数据，使用原有数据作为备用
+        wuhanOceanShowData.forEach(function(show) {
+            var row = document.createElement('tr');
+            var showsText = show.shows ? show.shows.join('、') : '暂无信息';
+            var timeText = show.operatingHours || show.bestTime || '按表演时间表';
+            
+            row.innerHTML = `
+                <td>
+                    <div class="performance-name">${showsText}</div>
+                </td>
+                <td>
+                    <div class="performance-location">${show.name}</div>
+                </td>
+                <td>
+                    <div class="performance-time">${timeText}</div>
+                </td>
+                <td>
+                    <button class="table-action-btn" onclick="addPerformanceToMap('${show.id}')" title="添加到地图">
+                        📍 添加
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+    
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    
+    // 添加说明文字
+    var infoText = document.createElement('div');
+    infoText.className = 'performance-info';
+    infoText.innerHTML = `
+        <p>💡 提示：点击"添加"按钮可以将表演地点标注到地图上，方便规划游览路线。</p>
+        <p>⏰ 表演时间可能会根据季节和天气情况调整，建议以园区当日公告为准。</p>
+    `;
+    
+    modalBody.appendChild(tableContainer);
+    modalBody.appendChild(infoText);
+    
+    // 显示模态窗口
+    performanceModal.style.display = 'flex';
+    
+    // 点击背景关闭
+    performanceModal.onclick = function(e) {
+        if (e.target === performanceModal) {
+            closePerformanceModal();
+        }
+    };
+}
+
+// 关闭表演打卡模态窗口
+function closePerformanceModal() {
+    var performanceModal = document.getElementById('performanceModal');
+    if (performanceModal) {
+        performanceModal.style.display = 'none';
+    }
+}
+
+// 添加单个表演项目到地图
+function addPerformanceToMap(showId) {
+    var show = wuhanOceanShowData.find(s => s.id === showId);
+    if (!show) return;
+    
+    // 检查是否已存在
+    var existingFeature = spotLayer.getSource().getFeatures().find(function(feature) {
+        return feature.get('spotData') && feature.get('spotData').id === showId;
+    });
+    
+    if (existingFeature) {
+        showMessage('该表演项目已在地图上');
+        return;
+    }
+    
+    // 创建要素
+    var feature = new ol.Feature({
+        geometry: new ol.geom.Point(ol.proj.fromLonLat(show.coordinates)),
+        spotData: show,
+        type: 'show',
+        category: show.category
+    });
+    
+    spotLayer.getSource().addFeature(feature);
+    updateSpotCount();
+    showMessage('表演项目已添加到地图');
+    
+    // 保持当前缩放级别，只移动中心点
+    var currentZoom = map.getView().getZoom();
+    map.getView().animate({
+        center: ol.proj.fromLonLat(show.coordinates),
+        zoom: currentZoom,
+        duration: 1000
+    });
+}
+
+// 导入所有表演项目
+function importAllPerformances() {
+    var addedCount = 0;
+    
+    wuhanOceanShowData.forEach(function(show) {
+        // 检查是否已存在
+        var existingFeature = spotLayer.getSource().getFeatures().find(function(feature) {
+            return feature.get('spotData') && feature.get('spotData').id === show.id;
+        });
+        
+        if (!existingFeature) {
+            var feature = new ol.Feature({
+                geometry: new ol.geom.Point(ol.proj.fromLonLat(show.coordinates)),
+                spotData: show,
+                type: 'show',
+                category: show.category
+            });
+            
+            spotLayer.getSource().addFeature(feature);
+            addedCount++;
+        }
+    });
+    
+    updateSpotCount();
+    
+    if (addedCount > 0) {
+        // 调整视图以显示所有表演项目
+        var extent = ol.extent.createEmpty();
+        wuhanOceanShowData.forEach(function(show) {
+            if (show.coordinates && show.coordinates.length === 2) {
+                var point = ol.proj.fromLonLat(show.coordinates);
+                ol.extent.extend(extent, point);
+            }
+        });
+        
+        if (!ol.extent.isEmpty(extent)) {
+            ol.extent.scaleFromCenter(extent, 1.2);
+            map.getView().fit(extent, {
+                duration: 1000,
+                padding: [50, 50, 50, 50]
+            });
+        }
+        
+        showMessage(`成功导入 ${addedCount} 个表演项目到地图`);
+    } else {
+        showMessage('所有表演项目已在地图上');
+    }
+}
+
 // 调试函数：检查图层状态
 function debugLayers() {
     var layers = map.getLayers().getArray();
@@ -1460,8 +1764,14 @@ function switchMode(mode) {
     // 更新当前数据集
     if (mode === 'disney') {
         currentData = disneyData;
+    } else if (mode === 'suzhou') {
+        currentData = suzhouSpotData;
+    } else if (mode === 'wuhan') {
+        currentData = spotData; // 暂时使用深圳数据集，后续可以添加武汉专用数据
+    } else if (mode === 'wuhanOcean') {
+        currentData = wuhanOceanSpotData; // 武汉极地海洋公园专用数据
     } else {
-        currentData = spotData;
+        currentData = spotData; // shenzhen
     }
     
     // 清除现有标注
@@ -1472,6 +1782,24 @@ function switchMode(mode) {
         map.getView().animate({
             center: ol.proj.fromLonLat(disneyConfig.center),
             zoom: disneyConfig.zoom,
+            duration: 1000
+        });
+    } else if (mode === 'suzhou') {
+        map.getView().animate({
+            center: ol.proj.fromLonLat(suzhouConfig.center),
+            zoom: suzhouConfig.zoom,
+            duration: 1000
+        });
+    } else if (mode === 'wuhan') {
+        map.getView().animate({
+            center: ol.proj.fromLonLat(wuhanConfig.center),
+            zoom: wuhanConfig.zoom,
+            duration: 1000
+        });
+    } else if (mode === 'wuhanOcean') {
+        map.getView().animate({
+            center: ol.proj.fromLonLat(wuhanOceanConfig.center),
+            zoom: wuhanOceanConfig.zoom,
             duration: 1000
         });
     } else {
@@ -1488,7 +1816,15 @@ function switchMode(mode) {
     updateStatusCounts();
     updateFilteredCount();
     
-    showMessage(mode === 'disney' ? '已切换到香港迪士尼导览模式' : '已切换到深圳机位导航模式');
+    var modeMessages = {
+        'disney': '已切换到香港迪士尼导览模式',
+        'shenzhen': '已切换到深圳机位导航模式',
+        'suzhou': '已切换到苏州机位导航模式',
+        'wuhan': '已切换到武汉机位导航模式',
+        'wuhanOcean': '已切换到武汉极地海洋公园导览模式'
+    };
+    
+    showMessage(modeMessages[mode] || '已切换模式');
 }
 
 // 更新模式UI
@@ -1497,42 +1833,83 @@ function updateModeUI() {
     
     // 更新模式按钮状态（桌面端和移动端）
     var shenzhenBtn = document.getElementById('shenzhenModeBtn');
+    var suzhouBtn = document.getElementById('suzhouModeBtn');
+    var wuhanBtn = document.getElementById('wuhanModeBtn');
+    var wuhanOceanBtn = document.getElementById('wuhanOceanModeBtn');
     var disneyBtn = document.getElementById('disneyModeBtn');
     var mobileSzBtn = document.getElementById('mobileSzModeBtn');
+    var mobileSuzhouBtn = document.getElementById('mobileSuzhouModeBtn');
+    var mobileWuhanBtn = document.getElementById('mobileWuhanModeBtn');
+    var mobileWuhanOceanBtn = document.getElementById('mobileWuhanOceanModeBtn');
     var mobileDisneyBtn = document.getElementById('mobileDisneyModeBtn');
     
+    // 清除所有按钮的active状态
+    [shenzhenBtn, suzhouBtn, wuhanBtn, wuhanOceanBtn, disneyBtn, mobileSzBtn, mobileSuzhouBtn, mobileWuhanBtn, mobileWuhanOceanBtn, mobileDisneyBtn].forEach(function(btn) {
+        if (btn) btn.classList.remove('active');
+    });
+
+    var searchSection = document.querySelector('.search-section');
+
     if (currentMode === 'disney') {
         logoTitle.textContent = '香港迪士尼导览';
         document.querySelector('.search-title').textContent = '🏰 景点搜索';
-        
-        // 更新桌面端按钮状态
-        if (shenzhenBtn && disneyBtn) {
-            shenzhenBtn.classList.remove('active');
-            disneyBtn.classList.add('active');
-        }
-        
-        // 更新移动端按钮状态
-        if (mobileSzBtn && mobileDisneyBtn) {
-            mobileSzBtn.classList.remove('active');
-            mobileDisneyBtn.classList.add('active');
-        }
+
+        if (searchSection) searchSection.style.display = 'block';
+
+        // 更新按钮状态
+        if (disneyBtn) disneyBtn.classList.add('active');
+        if (mobileDisneyBtn) mobileDisneyBtn.classList.add('active');
         
         updateDisneyFilters();
+    } else if (currentMode === 'suzhou') {
+        logoTitle.textContent = '苏州机位导航';
+        document.querySelector('.search-title').textContent = '🔍 机位搜索';
+        
+        if (searchSection) searchSection.style.display = 'block';
+
+        // 更新按钮状态
+        if (suzhouBtn) suzhouBtn.classList.add('active');
+        if (mobileSuzhouBtn) mobileSuzhouBtn.classList.add('active');
+        
+        updateShenzhenFilters();
+    } else if (currentMode === 'wuhan') {
+        logoTitle.textContent = '武汉机位导航';
+        document.querySelector('.search-title').textContent = '🔍 机位搜索';
+        
+        if (searchSection) searchSection.style.display = 'block';
+
+        // 更新按钮状态
+        if (wuhanBtn) wuhanBtn.classList.add('active');
+        if (mobileWuhanBtn) mobileWuhanBtn.classList.add('active');
+        
+        updateShenzhenFilters();
+    } else if (currentMode === 'wuhanOcean') {
+        logoTitle.textContent = '武汉极地海洋公园导览';
+        document.querySelector('.search-title').textContent = '🔍 机位搜索';
+        
+        if (searchSection) searchSection.style.display = 'block';
+
+        // 更新按钮状态
+        if (wuhanOceanBtn) wuhanOceanBtn.classList.add('active');
+        if (mobileWuhanOceanBtn) mobileWuhanOceanBtn.classList.add('active');
+        
+        // 显示表演打卡按钮
+        var showListBtn = document.getElementById('showListBtn');
+        if (showListBtn) showListBtn.style.display = 'inline-block';
+        
+        updateShenzhenFilters();
     } else {
+        // 隐藏表演打卡按钮
+        var showListBtn = document.getElementById('showListBtn');
+        if (showListBtn) showListBtn.style.display = 'none';
         logoTitle.textContent = '深圳机位导航';
         document.querySelector('.search-title').textContent = '🔍 机位搜索';
         
-        // 更新桌面端按钮状态
-        if (shenzhenBtn && disneyBtn) {
-            shenzhenBtn.classList.add('active');
-            disneyBtn.classList.remove('active');
-        }
-        
-        // 更新移动端按钮状态
-        if (mobileSzBtn && mobileDisneyBtn) {
-            mobileSzBtn.classList.add('active');
-            mobileDisneyBtn.classList.remove('active');
-        }
+        if (searchSection) searchSection.style.display = 'block';
+
+        // 更新按钮状态
+        if (shenzhenBtn) shenzhenBtn.classList.add('active');
+        if (mobileSzBtn) mobileSzBtn.classList.add('active');
         
         updateShenzhenFilters();
     }
@@ -1985,3 +2362,1238 @@ function showAttractionDetails(attractionId) {
     // 显示模态窗口
     document.getElementById('spotModal').style.display = 'flex';
 }
+
+// 完整的三维模型查看器类（基于model-viewer.html）
+class ModelViewer3D {
+    constructor() {
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.controls = null;
+        this.currentModel = null;
+        this.ambientLight = null;
+        this.directionalLight = null;
+        this.autoRotate = false;
+        this.wireframe = false;
+        this.loadedTextures = new Map(); // 存储加载的贴图
+        
+        // 距离跟踪相关
+        this.totalDistance = 0; // 总移动距离
+        this.lastCameraPosition = null; // 上一帧相机位置
+        this.distanceElement = null; // 距离显示元素
+        
+        // 右键移动限制相关
+        this.initialTargetY = null; // 初始目标点Y坐标
+        this.maxDownwardDistance = 1; // 最大向下移动距离
+        
+        // 事件绑定状态
+        this.eventsBound = false; // 标记事件是否已绑定
+        
+        this.init();
+        this.setupEventListeners();
+    }
+
+    init() {
+        // 创建场景
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0xf0f0f0);
+
+        // 创建相机
+        this.camera = new THREE.PerspectiveCamera(
+            75,
+            (window.innerWidth - 300) / window.innerHeight,
+            0.1,
+            1000
+        );
+        this.camera.position.set(8, 6, 8); // 沙盘模式的最佳初始视角
+
+        // 创建渲染器
+        const canvas = document.getElementById('canvas');
+        this.renderer = new THREE.WebGLRenderer({ 
+            canvas: canvas,
+            antialias: true 
+        });
+        this.renderer.setSize(window.innerWidth - 300, window.innerHeight);
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        // 创建控制器
+        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.05;
+        
+        // 沙盘模式设置：限制上下翻转角度，防止底面穿帮
+        this.controls.minPolarAngle = Math.PI * 0.3; // 限制最小仰角（约54度，更严格）
+        this.controls.maxPolarAngle = Math.PI * 0.5; // 限制最大仰角（约90度，更严格）
+        
+        // 提高左右翻转灵敏度
+        this.controls.rotateSpeed = 2.0; // 增加旋转速度
+        this.controls.zoomSpeed = 1.2; // 调整缩放速度
+        this.controls.panSpeed = 0.8; // 调整平移速度
+        
+        // 启用OrbitControls的平移功能
+        this.controls.enablePan = true;
+        
+        // 自定义鼠标控制：左键旋转，右键平移
+        this.setupCustomMouseControls();
+
+        // 创建光照
+        this.setupLights();
+        
+        // 创建沙盘地面
+        this.createSandboxGround();
+
+        // 初始化距离跟踪
+        this.initDistanceTracking();
+        
+        // 记录初始目标点Y坐标
+        this.initialTargetY = this.controls.target.y;
+        console.log('初始化限制参数:', {
+            initialTargetY: this.initialTargetY,
+            maxDownwardDistance: this.maxDownwardDistance
+        });
+        
+        // 添加OrbitControls的change事件监听来实现距离限制
+        this.controls.addEventListener('change', () => {
+            this.limitCameraDownwardMovement();
+        });
+
+        // 添加一个测试立方体模型
+        this.createTestModel();
+
+        // 开始渲染循环
+        this.animate();
+    }
+
+    setupLights() {
+        // 环境光（最大强度）
+        this.ambientLight = new THREE.AmbientLight(0x404040, 2.0);
+        this.scene.add(this.ambientLight);
+
+        // 方向光（最大强度）
+        this.directionalLight = new THREE.DirectionalLight(0xffffff, 2.0);
+        this.directionalLight.position.set(10, 10, 5);
+        this.directionalLight.castShadow = true;
+        this.directionalLight.shadow.mapSize.width = 2048;
+        this.directionalLight.shadow.mapSize.height = 2048;
+        this.scene.add(this.directionalLight);
+
+        // 添加一些额外的光源来增强效果
+        const light2 = new THREE.DirectionalLight(0xffffff, 1.0);
+        light2.position.set(-10, 10, -5);
+        this.scene.add(light2);
+
+        const light3 = new THREE.DirectionalLight(0xffffff, 0.8);
+        light3.position.set(0, -10, 0);
+        this.scene.add(light3);
+    }
+
+    createSandboxGround() {
+        // 创建沙盘地面
+        const groundGeometry = new THREE.PlaneGeometry(20, 20);
+        const groundMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0x87CEEB // 浅蓝色
+        });
+        
+        this.ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        this.ground.rotation.x = -Math.PI / 2; // 水平放置
+        this.ground.position.y = -2; // 稍微下沉
+        this.ground.receiveShadow = true;
+        this.scene.add(this.ground);
+        
+        // 添加沙盘边框（极薄厚度，不遮挡模型）
+        const borderGeometry = new THREE.BoxGeometry(20.2, 0.01, 20.2);
+        const borderMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0x87CEEB // 浅蓝色边框，与地面一致
+        });
+        
+        this.border = new THREE.Mesh(borderGeometry, borderMaterial);
+        this.border.position.y = -1.995; // 调整位置，几乎与地面平齐
+        this.scene.add(this.border);
+        
+        // 添加黑色台阶
+        this.createSteps();
+    }
+    
+    createSteps() {
+        // 创建四个边的黑色台阶（不交叉）
+        const stepMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0x000000 // 黑色
+        });
+        
+        // 前台阶（Z轴正方向）
+        const frontStepGeometry = new THREE.BoxGeometry(20, 0.3, 0.5);
+        const frontStep = new THREE.Mesh(frontStepGeometry, stepMaterial);
+        frontStep.position.set(0, -1.85, 10.25);
+        this.scene.add(frontStep);
+        
+        // 后台阶（Z轴负方向）
+        const backStep = new THREE.Mesh(frontStepGeometry, stepMaterial);
+        backStep.position.set(0, -1.85, -10.25);
+        this.scene.add(backStep);
+        
+        // 左台阶（X轴负方向）
+        const leftStepGeometry = new THREE.BoxGeometry(0.5, 0.3, 20);
+        const leftStep = new THREE.Mesh(leftStepGeometry, stepMaterial);
+        leftStep.position.set(-10.25, -1.85, 0);
+        this.scene.add(leftStep);
+        
+        // 右台阶（X轴正方向）
+        const rightStep = new THREE.Mesh(leftStepGeometry, stepMaterial);
+        rightStep.position.set(10.25, -1.85, 0);
+        this.scene.add(rightStep);
+    }
+    
+    createTestModel() {
+        // 创建一个测试立方体模型
+        const geometry = new THREE.BoxGeometry(2, 2, 2);
+        const material = new THREE.MeshLambertMaterial({ 
+            color: 0x00ff00,
+            side: THREE.DoubleSide
+        });
+        
+        this.currentModel = new THREE.Mesh(geometry, material);
+        this.currentModel.position.set(0, 0, 0); // 放在沙盘中心
+        this.currentModel.castShadow = true;
+        this.currentModel.receiveShadow = true;
+        
+        this.scene.add(this.currentModel);
+        console.log('测试立方体模型已创建');
+    }
+
+    disableRightClickGestures(canvas) {
+        // 禁用右键菜单
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        });
+
+        // 禁用右键拖拽选择文本
+        canvas.addEventListener('selectstart', (e) => {
+            e.preventDefault();
+            return false;
+        });
+
+        // 禁用拖拽
+        canvas.addEventListener('dragstart', (e) => {
+            e.preventDefault();
+            return false;
+        });
+
+        // 禁用整个页面的右键菜单
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            return false;
+        });
+
+        // 禁用触摸设备的右键手势
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        });
+
+        // 设置CSS样式禁用选择
+        canvas.style.userSelect = 'none';
+        canvas.style.webkitUserSelect = 'none';
+        canvas.style.mozUserSelect = 'none';
+        canvas.style.msUserSelect = 'none';
+        
+        // 禁用拖拽
+        canvas.style.webkitUserDrag = 'none';
+        canvas.style.userDrag = 'none';
+        
+        // 禁用右键菜单的CSS
+        canvas.style.webkitTouchCallout = 'none';
+    }
+
+    setupCustomMouseControls() {
+        const canvas = this.renderer.domElement;
+        let isLeftMouseDown = false;
+        let isRightMouseDown = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        // 禁用所有默认的右键手势和菜单
+        this.disableRightClickGestures(canvas);
+
+        // 鼠标按下事件
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 0) { // 左键
+                isLeftMouseDown = true;
+                this.controls.enableRotate = true;
+                this.controls.enablePan = false;
+            } else if (e.button === 2) { // 右键
+                isRightMouseDown = true;
+                this.controls.enableRotate = false;
+                this.controls.enablePan = true;
+            }
+            
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        });
+
+        // 鼠标移动事件
+        canvas.addEventListener('mousemove', (e) => {
+            if (isLeftMouseDown) {
+                // 左键拖拽：旋转视角
+                const deltaX = e.clientX - lastMouseX;
+                const deltaY = e.clientY - lastMouseY;
+                
+                // 水平旋转（绕Y轴）
+                this.controls.azimuthAngle -= deltaX * 0.01;
+                
+                // 垂直旋转（绕X轴）
+                this.controls.polarAngle += deltaY * 0.01;
+                
+                // 限制垂直角度
+                this.controls.polarAngle = Math.max(
+                    this.controls.minPolarAngle,
+                    Math.min(this.controls.maxPolarAngle, this.controls.polarAngle)
+                );
+                
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+            }
+        });
+
+        // 鼠标释放事件
+        canvas.addEventListener('mouseup', (e) => {
+            if (e.button === 0) { // 左键
+                isLeftMouseDown = false;
+            } else if (e.button === 2) { // 右键
+                isRightMouseDown = false;
+            }
+            
+            // 重置控制状态
+            this.controls.enableRotate = true;
+            this.controls.enablePan = true;
+        });
+
+        // 鼠标离开画布时重置状态
+        canvas.addEventListener('mouseleave', () => {
+            isLeftMouseDown = false;
+            isRightMouseDown = false;
+            this.controls.enableRotate = true;
+            this.controls.enablePan = true;
+        });
+
+        // 滚轮缩放
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY;
+            const scale = delta > 0 ? 1.1 : 0.9;
+            
+            // 计算缩放后的相机位置
+            const direction = new THREE.Vector3();
+            this.camera.getWorldDirection(direction);
+            const distance = this.camera.position.distanceTo(this.controls.target);
+            const newDistance = distance * scale;
+            
+            // 限制缩放范围
+            const minDistance = 1;
+            const maxDistance = 50;
+            const clampedDistance = Math.max(minDistance, Math.min(maxDistance, newDistance));
+            
+            // 更新相机位置
+            const newPosition = this.controls.target.clone().add(
+                direction.multiplyScalar(-clampedDistance)
+            );
+            this.camera.position.copy(newPosition);
+        });
+    }
+
+    setupEventListeners() {
+        console.log('开始设置三维模式事件监听器...');
+        
+        // 注意：这里不绑定事件监听器，因为元素可能还没有创建
+        // 事件监听器将在 bindEventsToNewElements() 中绑定
+        console.log('跳过初始事件绑定，等待新元素创建后绑定');
+
+        // 窗口大小调整
+        window.addEventListener('resize', this.onWindowResize.bind(this));
+        
+        console.log('三维模式事件监听器设置完成');
+    }
+
+    // 专门用于绑定到新创建元素的事件监听器
+    bindEventsToNewElements() {
+        console.log('=== bindEventsToNewElements 被调用 ===', '全局eventsBound状态:', eventsBound, '实例eventsBound状态:', this.eventsBound);
+        
+        // 检查是否已经绑定过事件
+        if (eventsBound) {
+            console.log('全局事件已经绑定过，跳过重复绑定');
+            return;
+        }
+        
+        // 文件上传 - 使用3D专用ID
+        const uploadArea = document.getElementById('uploadArea3D');
+        const fileInput = document.getElementById('fileInput3D');
+        console.log('新元素检查 - 文件上传:', { uploadArea: !!uploadArea, fileInput: !!fileInput });
+
+        if (uploadArea && fileInput) {
+            // 先克隆元素来移除所有事件监听器
+            const newUploadArea = uploadArea.cloneNode(true);
+            const newFileInput = newUploadArea.querySelector('#fileInput3D');
+            uploadArea.parentNode.replaceChild(newUploadArea, uploadArea);
+            
+            // 防重复触发标志
+            let isProcessing = false;
+            
+            // 绑定新的事件监听器 - 添加防重复机制
+            newUploadArea.addEventListener('click', (e) => {
+                // 不阻止默认行为，只阻止事件冒泡
+                e.stopPropagation();
+                
+                if (isProcessing) {
+                    console.log('防重复触发 - 忽略重复点击');
+                    return;
+                }
+                
+                isProcessing = true;
+                console.log('新元素 - 点击上传区域 (防重复)');
+                newFileInput.click();
+                
+                // 延迟重置标志，防止快速重复点击
+                setTimeout(() => {
+                    isProcessing = false;
+                }, 500);
+            }, true); // 使用捕获阶段
+            
+            newUploadArea.addEventListener('dragover', this.handleDragOver.bind(this));
+            newUploadArea.addEventListener('dragleave', this.handleDragLeave.bind(this));
+            newUploadArea.addEventListener('drop', this.handleDrop.bind(this));
+            
+            // 文件选择事件也添加防重复机制
+            newFileInput.addEventListener('change', (e) => {
+                // 不阻止默认行为，只阻止事件冒泡
+                e.stopPropagation();
+                
+                if (isProcessing) {
+                    console.log('防重复触发 - 忽略重复文件选择');
+                    return;
+                }
+                
+                isProcessing = true;
+                console.log('文件选择事件触发 (防重复)');
+                this.handleFileSelect(e);
+                
+                // 延迟重置标志
+                setTimeout(() => {
+                    isProcessing = false;
+                }, 500);
+            }, true); // 使用捕获阶段
+            
+            console.log('新元素 - 文件上传事件监听器已绑定 (防重复模式)');
+        }
+
+        // 控制面板 - 使用3D专用ID
+        const modelScale = document.getElementById('modelScale3D');
+        const resetCamera = document.getElementById('resetCamera3D');
+        const autoRotate = document.getElementById('autoRotate3D');
+        const wireframe = document.getElementById('wireframe3D');
+        const applyTexture = document.getElementById('applyTexture3D');
+        const reloadMaterials = document.getElementById('reloadMaterials3D');
+        const clearModel = document.getElementById('clearModel3D');
+        
+        console.log('新元素检查 - 控制按钮:', {
+            modelScale: !!modelScale,
+            resetCamera: !!resetCamera,
+            autoRotate: !!autoRotate,
+            wireframe: !!wireframe,
+            applyTexture: !!applyTexture,
+            reloadMaterials: !!reloadMaterials,
+            clearModel: !!clearModel
+        });
+
+        if (modelScale) {
+            modelScale.removeEventListener('input', this.handleModelScale);
+            this.handleModelScale = (e) => {
+                console.log('新元素 - 模型缩放滑块变化:', e.target.value);
+                if (this.currentModel) {
+                    const scale = parseFloat(e.target.value);
+                    this.currentModel.scale.setScalar(scale);
+                    this.centerModelOnSandbox();
+                }
+            };
+            modelScale.addEventListener('input', this.handleModelScale);
+            console.log('新元素 - 模型缩放事件监听器已绑定');
+        }
+
+        if (resetCamera) {
+            resetCamera.removeEventListener('click', this.handleResetCamera);
+            this.handleResetCamera = () => {
+                console.log('新元素 - 重置视角按钮被点击');
+                this.camera.position.set(8, 6, 8);
+                this.controls.target.set(0, 0, 0);
+                this.controls.update();
+                this.initialTargetY = this.controls.target.y;
+                console.log('新元素 - 视角已重置');
+            };
+            resetCamera.addEventListener('click', this.handleResetCamera);
+            console.log('新元素 - 重置视角事件监听器已绑定');
+        }
+
+        if (autoRotate) {
+            autoRotate.removeEventListener('click', this.handleAutoRotate);
+            this.handleAutoRotate = (e) => {
+                console.log('新元素 - 自动旋转按钮被点击');
+                this.autoRotate = !this.autoRotate;
+                this.controls.autoRotate = this.autoRotate;
+                e.target.textContent = this.autoRotate ? '停止旋转' : '自动旋转';
+                console.log('新元素 - 自动旋转状态:', this.autoRotate);
+            };
+            autoRotate.addEventListener('click', this.handleAutoRotate);
+            console.log('新元素 - 自动旋转事件监听器已绑定');
+        }
+
+        if (wireframe) {
+            wireframe.removeEventListener('click', this.handleWireframe);
+            this.handleWireframe = (e) => {
+                console.log('新元素 - 线框模式按钮被点击');
+                this.wireframe = !this.wireframe;
+                if (this.currentModel) {
+                    this.currentModel.traverse((child) => {
+                        if (child.isMesh) {
+                            child.material.wireframe = this.wireframe;
+                        }
+                    });
+                }
+                e.target.textContent = this.wireframe ? '实体模式' : '线框模式';
+                console.log('新元素 - 线框模式状态:', this.wireframe);
+            };
+            wireframe.addEventListener('click', this.handleWireframe);
+            console.log('新元素 - 线框模式事件监听器已绑定');
+        }
+
+        if (applyTexture) {
+            applyTexture.removeEventListener('click', this.handleApplyTexture);
+            this.handleApplyTexture = () => {
+                console.log('新元素 - 应用贴图按钮被点击');
+                this.applyTexturesToModel();
+            };
+            applyTexture.addEventListener('click', this.handleApplyTexture);
+            console.log('新元素 - 应用贴图事件监听器已绑定');
+        }
+
+        if (reloadMaterials) {
+            reloadMaterials.removeEventListener('click', this.handleReloadMaterials);
+            this.handleReloadMaterials = () => {
+                console.log('新元素 - 重新加载材质按钮被点击');
+                this.reloadMaterials();
+            };
+            reloadMaterials.addEventListener('click', this.handleReloadMaterials);
+            console.log('新元素 - 重新加载材质事件监听器已绑定');
+        }
+
+        if (clearModel) {
+            clearModel.removeEventListener('click', this.handleClearModel);
+            this.handleClearModel = () => {
+                console.log('新元素 - 清除模型按钮被点击');
+                this.clearCurrentModel();
+            };
+            clearModel.addEventListener('click', this.handleClearModel);
+            console.log('新元素 - 清除模型事件监听器已绑定');
+        }
+
+        // 标记事件已绑定
+        this.eventsBound = true;
+        eventsBound = true; // 设置全局标志
+        console.log('新元素事件监听器绑定完成，全局标志已设置');
+    }
+
+    handleDragOver(e) {
+        e.preventDefault();
+        e.currentTarget.classList.add('dragover');
+    }
+
+    handleDragLeave(e) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('dragover');
+    }
+
+    handleDrop(e) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        this.loadFiles(files);
+    }
+
+    handleFileSelect(e) {
+        console.log('文件选择事件触发');
+        const files = e.target.files;
+        console.log('选择的文件数量:', files.length);
+        for (let i = 0; i < files.length; i++) {
+            console.log(`文件 ${i + 1}:`, files[i].name, files[i].type, files[i].size);
+        }
+        this.loadFiles(files);
+    }
+
+    async loadFiles(files) {
+        console.log('开始加载文件...');
+        if (files.length === 0) {
+            console.log('没有文件需要加载');
+            return;
+        }
+
+        console.log('显示加载提示');
+        this.showLoading(true);
+        this.hideMessages();
+
+        try {
+            let objFile = null;
+            let mtlFile = null;
+            const textureFiles = [];
+            console.log('开始分离文件类型...');
+
+            // 分离不同类型的文件
+            for (let file of files) {
+                const fileName = file.name.toLowerCase();
+                if (fileName.endsWith('.obj')) {
+                    objFile = file;
+                } else if (fileName.endsWith('.mtl')) {
+                    mtlFile = file;
+                } else if (fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+                    textureFiles.push(file);
+                }
+            }
+
+            if (!objFile) {
+                throw new Error('请选择OBJ文件');
+            }
+
+            // 移除之前的模型
+            if (this.currentModel) {
+                this.scene.remove(this.currentModel);
+            }
+
+            // 加载贴图文件
+            if (textureFiles.length > 0) {
+                await this.loadTextures(textureFiles);
+            }
+
+            // 加载材质（如果存在）
+            let materials = null;
+            if (mtlFile) {
+                materials = await this.loadMTL(mtlFile);
+            }
+
+            // 加载OBJ模型
+            const model = await this.loadOBJ(objFile, materials);
+            
+            // 自动调整模型大小和位置
+            this.fitModelToView(model);
+            
+            this.currentModel = model;
+            this.scene.add(model);
+
+            // 更新信息面板
+            this.updateModelInfo(objFile.name, model);
+
+            this.showSuccess('模型加载成功！');
+
+        } catch (error) {
+            console.error('加载模型失败:', error);
+            this.showError('加载模型失败: ' + error.message);
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    async loadTextures(textureFiles) {
+        const textureLoader = new THREE.TextureLoader();
+        
+        for (let file of textureFiles) {
+            try {
+                const texture = await this.loadTextureFromFile(file, textureLoader);
+                this.loadedTextures.set(file.name, texture);
+                this.updateTextureList();
+            } catch (error) {
+                console.error(`加载贴图 ${file.name} 失败:`, error);
+            }
+        }
+    }
+
+    loadTextureFromFile(file, loader) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const texture = loader.load(e.target.result);
+                    texture.wrapS = THREE.RepeatWrapping;
+                    texture.wrapT = THREE.RepeatWrapping;
+                    texture.flipY = false; // OBJ格式通常不需要翻转Y轴
+                    resolve(texture);
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            reader.onerror = () => reject(new Error(`读取贴图文件 ${file.name} 失败`));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    loadMTL(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const mtlLoader = new THREE.MTLLoader();
+                    mtlLoader.setPath('');
+                    
+                    // 创建材质
+                    const materials = mtlLoader.parse(e.target.result);
+                    materials.preload();
+                    
+                    // 处理材质中的贴图路径
+                    this.processMTLTextures(materials);
+                    
+                    resolve(materials);
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            reader.onerror = () => reject(new Error('读取MTL文件失败'));
+            reader.readAsText(file);
+        });
+    }
+
+    processMTLTextures(materials) {
+        // 遍历材质，处理贴图路径
+        Object.values(materials.materials).forEach(material => {
+            if (material.map && material.map.sourceFile) {
+                // 如果材质中引用了贴图文件，尝试从已加载的贴图中找到匹配的
+                const textureName = material.map.sourceFile.toLowerCase();
+                let found = false;
+                
+                for (let [fileName, texture] of this.loadedTextures) {
+                    const fileNameLower = fileName.toLowerCase();
+                    const baseName = textureName.replace(/\.(png|jpg|jpeg)$/i, '');
+                    
+                    // 多种匹配方式
+                    if (fileNameLower.includes(baseName) || 
+                        fileNameLower.includes(textureName.replace(/\.(png|jpg|jpeg)$/i, '')) ||
+                        baseName.includes(fileNameLower.replace(/\.(png|jpg|jpeg)$/i, ''))) {
+                        material.map = texture;
+                        material.needsUpdate = true;
+                        found = true;
+                        console.log(`成功关联贴图: ${fileName} -> ${textureName}`);
+                        break;
+                    }
+                }
+                
+                if (!found) {
+                    console.warn(`未找到匹配的贴图文件: ${textureName}`);
+                }
+            }
+        });
+    }
+
+    loadOBJ(file, materials) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const objLoader = new THREE.OBJLoader();
+                    
+                    if (materials) {
+                        objLoader.setMaterials(materials);
+                    }
+
+                    const model = objLoader.parse(e.target.result);
+                    
+                    // 自动贴图处理
+                    this.applyAutoTexturing(model);
+                    
+                    resolve(model);
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            reader.onerror = () => reject(new Error('读取OBJ文件失败'));
+            reader.readAsText(file);
+        });
+    }
+
+    applyAutoTexturing(model) {
+        model.traverse((child) => {
+            if (child.isMesh) {
+                // 检查是否有UV坐标
+                const hasUV = child.geometry.attributes.uv !== undefined;
+                
+                if (hasUV) {
+                    // 如果有UV坐标，保持原有材质但确保正确设置
+                    if (Array.isArray(child.material)) {
+                        child.material = child.material.map(mat => {
+                            const newMaterial = mat.clone();
+                            // 确保材质支持贴图
+                            if (!newMaterial.map && this.loadedTextures.size > 0) {
+                                // 如果没有贴图但有UV坐标，创建支持贴图的材质
+                                newMaterial.map = null;
+                            }
+                            newMaterial.side = THREE.DoubleSide;
+                            newMaterial.needsUpdate = true;
+                            return newMaterial;
+                        });
+                    } else {
+                        const newMaterial = child.material.clone();
+                        newMaterial.side = THREE.DoubleSide;
+                        newMaterial.needsUpdate = true;
+                        child.material = newMaterial;
+                    }
+                } else {
+                    // 如果没有UV坐标，创建基础材质
+                    const material = new THREE.MeshLambertMaterial({
+                        color: 0x888888,
+                        side: THREE.DoubleSide
+                    });
+
+                    if (!child.material || child.material.length === 0) {
+                        child.material = material;
+                    } else if (Array.isArray(child.material)) {
+                        child.material = child.material.map(mat => {
+                            return new THREE.MeshLambertMaterial({
+                                color: mat.color || 0x888888,
+                                side: THREE.DoubleSide
+                            });
+                        });
+                    } else {
+                        child.material = new THREE.MeshLambertMaterial({
+                            color: child.material.color || 0x888888,
+                            side: THREE.DoubleSide
+                        });
+                    }
+                }
+
+                // 启用阴影
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+    }
+
+    fitModelToView(model) {
+        // 先重置模型的位置和旋转
+        model.position.set(0, 0, 0);
+        model.rotation.set(0, 0, 0);
+        model.scale.set(1, 1, 1);
+        
+        // 获取原始包围盒
+        const box = new THREE.Box3().setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+
+        // 计算合适的缩放比例
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 4 / maxDim; // 目标大小为4个单位，适合沙盘
+
+        // 先应用缩放
+        model.scale.setScalar(scale);
+        
+        // 绕X轴逆时针旋转90度，让模型从竖向变为横向
+        model.rotation.x = -Math.PI / 2;
+        
+        // 重新计算旋转和缩放后的包围盒
+        const newBox = new THREE.Box3().setFromObject(model);
+        const newCenter = newBox.getCenter(new THREE.Vector3());
+        const newSize = newBox.getSize(new THREE.Vector3());
+        
+        // 沙盘中心坐标
+        const sandboxCenter = new THREE.Vector3(0, 0, 0);
+        const groundLevel = -2; // 沙盘上表面Y坐标
+        
+        // 将模型放置在沙盘中心
+        model.position.set(
+            sandboxCenter.x - newCenter.x,  // X轴居中
+            groundLevel - newBox.min.y,     // Y轴：模型底部在沙盘表面
+            sandboxCenter.z - newCenter.z   // Z轴居中
+        );
+
+        // 重置缩放滑块
+        const modelScale = document.getElementById('modelScale');
+        if (modelScale) {
+            modelScale.value = scale;
+        }
+        
+        // 更新相机目标点，让相机始终看向沙盘中心
+        this.controls.target.set(sandboxCenter.x, sandboxCenter.y, sandboxCenter.z);
+        this.controls.update();
+    }
+
+    centerModelOnSandbox() {
+        if (!this.currentModel) return;
+        
+        // 获取模型当前的包围盒
+        const box = new THREE.Box3().setFromObject(this.currentModel);
+        const center = box.getCenter(new THREE.Vector3());
+        
+        // 沙盘中心坐标
+        const sandboxCenter = new THREE.Vector3(0, 0, 0);
+        const groundLevel = -2; // 沙盘上表面Y坐标
+        
+        // 计算需要调整的位置偏移
+        const offsetX = sandboxCenter.x - center.x;
+        const offsetZ = sandboxCenter.z - center.z;
+        
+        // 应用位置调整，确保模型底部在沙盘表面
+        this.currentModel.position.x += offsetX;
+        this.currentModel.position.z += offsetZ;
+        this.currentModel.position.y = groundLevel - box.min.y;
+    }
+
+    applyTexturesToModel() {
+        if (!this.currentModel || this.loadedTextures.size === 0) {
+            this.showError('请先加载模型和贴图文件');
+            return;
+        }
+
+        const textures = Array.from(this.loadedTextures.values());
+        let appliedCount = 0;
+        let skippedCount = 0;
+
+        this.currentModel.traverse((child) => {
+            if (child.isMesh) {
+                // 检查是否有UV坐标
+                const hasUV = child.geometry.attributes.uv !== undefined;
+                
+                if (!hasUV) {
+                    skippedCount++;
+                    return; // 跳过没有UV坐标的网格
+                }
+
+                // 为有UV坐标的网格应用贴图
+                const texture = textures[appliedCount % textures.length];
+                
+                if (Array.isArray(child.material)) {
+                    // 多材质情况
+                    child.material = child.material.map(mat => {
+                        const newMaterial = mat.clone();
+                        newMaterial.map = texture;
+                        newMaterial.needsUpdate = true;
+                        return newMaterial;
+                    });
+                } else {
+                    // 单材质情况
+                    const newMaterial = child.material.clone();
+                    newMaterial.map = texture;
+                    newMaterial.needsUpdate = true;
+                    child.material = newMaterial;
+                }
+                
+                appliedCount++;
+            }
+        });
+
+        if (appliedCount > 0) {
+            this.showSuccess(`已为 ${appliedCount} 个网格应用贴图${skippedCount > 0 ? `，跳过 ${skippedCount} 个无UV坐标的网格` : ''}`);
+        } else {
+            this.showError('模型中没有找到UV坐标，无法应用贴图');
+        }
+    }
+
+    updateModelInfo(fileName, model) {
+        let vertexCount = 0;
+        let faceCount = 0;
+        let materialCount = 0;
+        let meshWithUV = 0;
+        let meshWithoutUV = 0;
+
+        model.traverse((child) => {
+            if (child.isMesh) {
+                if (child.geometry.attributes.position) {
+                    vertexCount += child.geometry.attributes.position.count;
+                }
+                if (child.geometry.index) {
+                    faceCount += child.geometry.index.count / 3;
+                } else {
+                    faceCount += child.geometry.attributes.position.count / 3;
+                }
+                materialCount++;
+
+                // 检查UV坐标
+                if (child.geometry.attributes.uv) {
+                    meshWithUV++;
+                } else {
+                    meshWithoutUV++;
+                }
+            }
+        });
+
+        const modelNameEl = document.getElementById('modelName3D');
+        const vertexCountEl = document.getElementById('vertexCount3D');
+        const faceCountEl = document.getElementById('faceCount3D');
+        const materialCountEl = document.getElementById('materialCount3D');
+        const textureCountEl = document.getElementById('textureCount3D');
+        const uvInfoEl = document.getElementById('uvInfo3D');
+
+        if (modelNameEl) modelNameEl.textContent = fileName;
+        if (vertexCountEl) vertexCountEl.textContent = Math.floor(vertexCount).toLocaleString();
+        if (faceCountEl) faceCountEl.textContent = Math.floor(faceCount).toLocaleString();
+        if (materialCountEl) materialCountEl.textContent = materialCount;
+        if (textureCountEl) textureCountEl.textContent = this.loadedTextures.size;
+        
+        // 更新UV信息
+        if (uvInfoEl) {
+            if (meshWithUV > 0 && meshWithoutUV > 0) {
+                uvInfoEl.textContent = `部分支持 (${meshWithUV}/${meshWithUV + meshWithoutUV})`;
+            } else if (meshWithUV > 0) {
+                uvInfoEl.textContent = '完全支持';
+            } else {
+                uvInfoEl.textContent = '不支持';
+            }
+        }
+    }
+
+    updateTextureList() {
+        const texturePanel = document.getElementById('texturePanel3D');
+        const textureList = document.getElementById('textureList3D');
+        
+        if (this.loadedTextures.size > 0) {
+            if (texturePanel) texturePanel.style.display = 'block';
+            if (textureList) {
+                textureList.innerHTML = '';
+                
+                this.loadedTextures.forEach((texture, fileName) => {
+                    const textureItem = document.createElement('div');
+                    textureItem.style.cssText = `
+                        display: flex;
+                        align-items: center;
+                        margin-bottom: 5px;
+                        padding: 5px;
+                        background: rgba(102, 126, 234, 0.1);
+                        border-radius: 5px;
+                    `;
+                    
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 40;
+                    canvas.height = 40;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // 创建贴图预览
+                    const img = new Image();
+                    img.onload = () => {
+                        ctx.drawImage(img, 0, 0, 40, 40);
+                    };
+                    img.src = texture.image.src;
+                    
+                    const fileNameSpan = document.createElement('span');
+                    fileNameSpan.textContent = fileName;
+                    fileNameSpan.style.cssText = 'margin-left: 10px; font-size: 12px; color: #333;';
+                    
+                    textureItem.appendChild(canvas);
+                    textureItem.appendChild(fileNameSpan);
+                    textureList.appendChild(textureItem);
+                });
+            }
+        } else {
+            if (texturePanel) texturePanel.style.display = 'none';
+        }
+    }
+
+    reloadMaterials() {
+        if (!this.currentModel) {
+            this.showError('请先加载模型');
+            return;
+        }
+
+        this.currentModel.traverse((child) => {
+            if (child.isMesh) {
+                // 强制更新材质
+                if (Array.isArray(child.material)) {
+                    child.material.forEach(mat => {
+                        mat.needsUpdate = true;
+                    });
+                } else {
+                    child.material.needsUpdate = true;
+                }
+            }
+        });
+
+        this.showSuccess('材质已重新加载');
+    }
+
+    showLoading(show) {
+        console.log('showLoading 被调用:', show);
+        const loading = document.getElementById('loading');
+        console.log('loading 元素:', !!loading);
+        if (loading) {
+            if (show) {
+                loading.classList.add('show');
+                console.log('显示加载提示');
+            } else {
+                loading.classList.remove('show');
+                console.log('隐藏加载提示');
+            }
+        } else {
+            console.error('未找到 loading 元素');
+        }
+    }
+
+    showError(message) {
+        console.log('显示错误消息:', message);
+        const errorDiv = document.getElementById('errorMessage3D');
+        console.log('errorDiv 元素:', !!errorDiv);
+        if (errorDiv) {
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+            console.log('错误消息已显示');
+        } else {
+            console.error('未找到 errorMessage3D 元素');
+        }
+    }
+
+    showSuccess(message) {
+        console.log('显示成功消息:', message);
+        const successDiv = document.getElementById('successMessage3D');
+        console.log('successDiv 元素:', !!successDiv);
+        if (successDiv) {
+            successDiv.textContent = message;
+            successDiv.classList.add('show');
+            console.log('成功消息已显示');
+        } else {
+            console.error('未找到 successMessage3D 元素');
+        }
+    }
+
+    hideMessages() {
+        console.log('隐藏所有消息');
+        const errorDiv = document.getElementById('errorMessage3D');
+        const successDiv = document.getElementById('successMessage3D');
+        console.log('消息元素:', { errorDiv: !!errorDiv, successDiv: !!successDiv });
+        if (errorDiv) errorDiv.classList.remove('show');
+        if (successDiv) successDiv.classList.remove('show');
+        console.log('消息已隐藏');
+    }
+
+    onWindowResize() {
+        this.camera.aspect = (window.innerWidth - 300) / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth - 300, window.innerHeight);
+    }
+
+    // 清除当前模型
+    clearCurrentModel() {
+        console.log('开始清除当前模型...');
+        
+        if (this.currentModel) {
+            // 从场景中移除模型
+            this.scene.remove(this.currentModel);
+            
+            // 释放模型资源
+            this.currentModel.traverse((child) => {
+                if (child.isMesh) {
+                    if (child.geometry) {
+                        child.geometry.dispose();
+                    }
+                    if (child.material) {
+                        if (Array.isArray(child.material)) {
+                            child.material.forEach(material => {
+                                if (material.map) material.map.dispose();
+                                material.dispose();
+                            });
+                        } else {
+                            if (child.material.map) child.material.map.dispose();
+                            child.material.dispose();
+                        }
+                    }
+                }
+            });
+            
+            this.currentModel = null;
+            console.log('模型已从场景中移除');
+        }
+        
+        // 清除贴图
+        this.loadedTextures.forEach((texture, fileName) => {
+            texture.dispose();
+        });
+        this.loadedTextures.clear();
+        console.log('贴图已清除');
+        
+        // 重置信息面板
+        this.resetModelInfo();
+        
+        // 重置缩放滑块
+        const modelScale = document.getElementById('modelScale3D');
+        if (modelScale) {
+            modelScale.value = 1;
+        }
+        
+        // 重置线框模式
+        this.wireframe = false;
+        
+        // 重置自动旋转
+        this.autoRotate = false;
+        if (this.controls) {
+            this.controls.autoRotate = false;
+        }
+        
+        this.showSuccess('模型已清除');
+        console.log('模型清除完成');
+    }
+
+    // 重置模型信息面板
+    resetModelInfo() {
+        const modelNameEl = document.getElementById('modelName3D');
+        const vertexCountEl = document.getElementById('vertexCount3D');
+        const faceCountEl = document.getElementById('faceCount3D');
+        const materialCountEl = document.getElementById('materialCount3D');
+        const textureCountEl = document.getElementById('textureCount3D');
+        const uvInfoEl = document.getElementById('uvInfo3D');
+        const texturePanel = document.getElementById('texturePanel3D');
+        const textureList = document.getElementById('textureList3D');
+
+        if (modelNameEl) modelNameEl.textContent = '未加载';
+        if (vertexCountEl) vertexCountEl.textContent = '0';
+        if (faceCountEl) faceCountEl.textContent = '0';
+        if (materialCountEl) materialCountEl.textContent = '0';
+        if (textureCountEl) textureCountEl.textContent = '0';
+        if (uvInfoEl) uvInfoEl.textContent = '检测中...';
+        
+        if (texturePanel) texturePanel.style.display = 'none';
+        if (textureList) textureList.innerHTML = '';
+        
+        console.log('模型信息面板已重置');
+    }
+
+    initDistanceTracking() {
+        // 初始化相机位置
+        this.lastCameraPosition = this.camera.position.clone();
+    }
+
+    limitCameraDownwardMovement() {
+        // 计算从初始位置向下移动的距离（基于目标点）
+        const downwardDistance = this.initialTargetY - this.controls.target.y;
+        
+        // 如果超过最大向下移动距离，强制调整目标点Y坐标
+        if (downwardDistance > this.maxDownwardDistance) {
+            const maxAllowedTargetY = this.initialTargetY - this.maxDownwardDistance;
+            this.controls.target.y = maxAllowedTargetY;
+            this.controls.update();
+        }
+    }
+
+    animate() {
+        requestAnimationFrame(this.animate.bind(this));
+        this.controls.update();
+        this.renderer.render(this.scene, this.camera);
+    }
+
+    dispose() {
+        if (this.renderer) {
+            this.renderer.dispose();
+        }
+        if (this.controls) {
+            this.controls.dispose();
+        }
+    }
+}
+
+// 页面加载完成后初始化
