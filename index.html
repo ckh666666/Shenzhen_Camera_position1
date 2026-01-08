@@ -57,6 +57,44 @@
         <span class="hamburger"></span>
     </button>
 
+    <!-- 移动端导航按钮 -->
+    <button class="mobile-nav-btn" onclick="toggleMobileNav()" id="mobileNavBtn">
+        <span class="nav-icon">☰</span>
+    </button>
+
+    <!-- 移动端导航菜单遮罩 -->
+    <div class="mobile-nav-overlay" id="mobileNavOverlay" onclick="toggleMobileNav()"></div>
+
+    <!-- 移动端导航菜单面板 -->
+    <div class="mobile-nav-panel" id="mobileNavPanel">
+        <div class="mobile-nav-header">
+            <h3>功能菜单</h3>
+            <button class="mobile-nav-close" onclick="toggleMobileNav()">×</button>
+        </div>
+        <div class="mobile-nav-content">
+            <button class="mobile-nav-item" onclick="showSpotManager(); toggleMobileNav();">
+                <span class="nav-item-icon">📋</span>
+                <span class="nav-item-text">机位管理</span>
+            </button>
+            <button class="mobile-nav-item" onclick="showRoutePlanner(); toggleMobileNav();">
+                <span class="nav-item-icon">🗺️</span>
+                <span class="nav-item-text">路线规划</span>
+            </button>
+            <button class="mobile-nav-item" id="mobileShowListBtn" onclick="showPerformanceList(); toggleMobileNav();" style="display:none;">
+                <span class="nav-item-icon">🎭</span>
+                <span class="nav-item-text">表演打卡</span>
+            </button>
+            <button class="mobile-nav-item" onclick="clearAllSpots(); toggleMobileNav();">
+                <span class="nav-item-icon">🗑️</span>
+                <span class="nav-item-text">清空标注</span>
+            </button>
+            <button class="mobile-nav-item" onclick="showSettings(); toggleMobileNav();">
+                <span class="nav-item-icon">⚙️</span>
+                <span class="nav-item-text">设置</span>
+            </button>
+        </div>
+    </div>
+
     <!-- 主容器 -->
     <div class="main-container">
         <!-- 侧边栏 -->
@@ -165,7 +203,8 @@
                 </div>
                 <div class="control-group">
                     <div class="control-title">视图控制</div>
-                    <button class="control-btn" onclick="resetView()">重置视图</button>
+                    <button class="control-btn" id="viewControlBtn" onclick="handleViewControl()">重置视图</button>
+                    <button class="control-btn" id="performanceCheckInBtn" onclick="showPerformanceList()" style="display:none;">表演打卡</button>
                     <button class="control-btn" onclick="locateMe()">定位我</button>
                     <button class="control-btn" onclick="fullscreen()">全屏</button>
                 </div>
