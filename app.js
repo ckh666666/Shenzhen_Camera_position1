@@ -2055,6 +2055,8 @@ function switchMode(mode) {
     // 更新当前数据集
     if (mode === 'disney') {
         currentData = disneyData;
+    } else if (mode === 'taipei') {
+        currentData = taipeiSpotData;
     } else if (mode === 'suzhou') {
         currentData = suzhouSpotData;
     } else if (mode === 'wuhan') {
@@ -2073,6 +2075,12 @@ function switchMode(mode) {
         map.getView().animate({
             center: ol.proj.fromLonLat(disneyConfig.center),
             zoom: disneyConfig.zoom,
+            duration: 1000
+        });
+    } else if (mode === 'taipei') {
+        map.getView().animate({
+            center: ol.proj.fromLonLat(taipeiConfig.center), // 台北101为视野中心
+            zoom: taipeiConfig.zoom,
             duration: 1000
         });
     } else if (mode === 'suzhou') {
@@ -2112,7 +2120,8 @@ function switchMode(mode) {
         'shenzhen': '已切换到深圳机位导航模式',
         'suzhou': '已切换到苏州机位导航模式',
         'wuhan': '已切换到武汉机位导航模式',
-        'wuhanOcean': '已切换到武汉极地海洋公园导览模式'
+        'wuhanOcean': '已切换到武汉极地海洋公园导览模式',
+        'taipei': '已切换到台北机位导航模式'
     };
     
     showMessage(modeMessages[mode] || '已切换模式');
@@ -2127,15 +2136,17 @@ function updateModeUI() {
     var suzhouBtn = document.getElementById('suzhouModeBtn');
     var wuhanBtn = document.getElementById('wuhanModeBtn');
     var wuhanOceanBtn = document.getElementById('wuhanOceanModeBtn');
+    var taipeiBtn = document.getElementById('taipeiModeBtn');
     var disneyBtn = document.getElementById('disneyModeBtn');
     var mobileSzBtn = document.getElementById('mobileSzModeBtn');
     var mobileSuzhouBtn = document.getElementById('mobileSuzhouModeBtn');
     var mobileWuhanBtn = document.getElementById('mobileWuhanModeBtn');
     var mobileWuhanOceanBtn = document.getElementById('mobileWuhanOceanModeBtn');
+    var mobileTaipeiBtn = document.getElementById('mobileTaipeiModeBtn');
     var mobileDisneyBtn = document.getElementById('mobileDisneyModeBtn');
     
     // 清除所有按钮的active状态
-    [shenzhenBtn, suzhouBtn, wuhanBtn, wuhanOceanBtn, disneyBtn, mobileSzBtn, mobileSuzhouBtn, mobileWuhanBtn, mobileWuhanOceanBtn, mobileDisneyBtn].forEach(function(btn) {
+    [shenzhenBtn, suzhouBtn, wuhanBtn, wuhanOceanBtn, taipeiBtn, disneyBtn, mobileSzBtn, mobileSuzhouBtn, mobileWuhanBtn, mobileWuhanOceanBtn, mobileTaipeiBtn, mobileDisneyBtn].forEach(function(btn) {
         if (btn) btn.classList.remove('active');
     });
 
@@ -2160,6 +2171,21 @@ function updateModeUI() {
         if (performanceCheckInBtn) performanceCheckInBtn.style.display = 'none';
         
         updateDisneyFilters();
+    } else if (currentMode === 'taipei') {
+        logoTitle.textContent = '台北机位导航';
+        document.querySelector('.search-title').textContent = '🔍 机位搜索';
+
+        if (searchSection) searchSection.style.display = 'block';
+
+        // 更新按钮状态
+        if (taipeiBtn) taipeiBtn.classList.add('active');
+        if (mobileTaipeiBtn) mobileTaipeiBtn.classList.add('active');
+
+        // 显示重置视图按钮，隐藏表演打卡按钮
+        if (viewControlBtn) viewControlBtn.style.display = 'block';
+        if (performanceCheckInBtn) performanceCheckInBtn.style.display = 'none';
+
+        updateShenzhenFilters();
     } else if (currentMode === 'suzhou') {
         logoTitle.textContent = '苏州机位导航';
         document.querySelector('.search-title').textContent = '🔍 机位搜索';
