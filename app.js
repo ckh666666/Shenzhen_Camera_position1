@@ -144,6 +144,14 @@ function getSpotStyle(feature) {
         
         colors = disneyColors[category] || disneyColors['themed_area']; // 默认使用主题区域颜色
         styleIcon = colors.icon;
+    } else if (currentMode === 'taipei' && spotData && (spotData.category === 'home' || spotData.category === 'favorite')) {
+        // 台北模式：为“家”和“常逛地”使用特殊颜色与图标
+        var taipeiColors = {
+            'home':     { fill: '#ffcc00', stroke: '#e6b800', center: '#ffffff', icon: '🏠' }, // 家：金黄色小房子
+            'favorite': { fill: '#00c4ff', stroke: '#0099cc', center: '#ffffff', icon: '🛣️' }  // 常逛地：蓝色街道图标
+        };
+        colors = taipeiColors[spotData.category] || taipeiColors['favorite'];
+        styleIcon = colors.icon;
     } else if (currentMode === 'wuhanOcean' && spotData && spotData.type === 'show') {
         // 武汉极地海洋公园表演项目：使用橙色区分
         colors = { fill: '#ff6b35', stroke: '#e55a2b', center: '#ffffff' }; // 橙色
@@ -162,8 +170,10 @@ function getSpotStyle(feature) {
     // 创建图钉图标
     var pinIcon;
     
-    if ((currentMode === 'disney' && styleIcon) || (currentMode === 'wuhanOcean' && spotData && spotData.type === 'show' && styleIcon)) {
-        // 迪士尼模式或武汉极地海洋公园表演项目使用emoji图标
+    if ((currentMode === 'disney' && styleIcon) ||
+        (currentMode === 'wuhanOcean' && spotData && spotData.type === 'show' && styleIcon) ||
+        (currentMode === 'taipei' && styleIcon)) {
+        // 迪士尼模式、武汉极地海洋公园表演项目、台北常用点使用emoji图标
         pinIcon = new ol.style.Icon({
             anchor: [0.5, 1],
             anchorXUnits: 'fraction',
