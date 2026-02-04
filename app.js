@@ -6,6 +6,43 @@ var currentPosition = null;
 var baseLayers = {}; // 存储基础图层
 var currentMode = 'shenzhen'; // 当前模式: 'shenzhen', 'suzhou', 'wuhan', 'wuhanOcean' 或 'disney'
 var currentData = null; // 当前使用的数据集
+var coordinateDebugMode = false; // 是否开启坐标拾取调试模式
+
+// 台北 7-11 门店坐标修正偏移量（基于实测对比）
+// 示例：三重區三陽路62號64號
+// 原始坐标:  lat=25.0586212, lng=121.4814329  （来自 Google / 数据源）
+// 精调坐标:  lat=25.05867502, lng=121.48409182（通过当前底图拾取）
+// 差值:      dLat ≈ +0.00005382, dLng ≈ +0.00265892
+var taipei711Offset = {
+    lat: 0.00005382,
+    lng: 0.00265892
+};
+
+// 开关坐标拾取调试模式，便于精细标注点位（例如 7-11 门店）
+function enableCoordinateDebugMode(enabled) {
+    coordinateDebugMode = !!enabled;
+    console.log('坐标拾取调试模式已' + (coordinateDebugMode ? '开启' : '关闭') + '（点击地图将在控制台输出 WGS84 坐标）');
+}
+
+// 获取用于显示在地图上的坐标（可根据模式/类型做统一偏移修正）
+function getDisplayCoordinates(spot) {
+    if (!spot || !spot.coordinates || spot.coordinates.length !== 2) {
+        return spot ? spot.coordinates : null;
+    }
+    
+    var lon = spot.coordinates[0];
+    var lat = spot.coordinates[1];
+    
+    // 台北模式下，对 7-11 门店应用统一的实测偏移修正
+    if (currentMode === 'taipei' && spot.isSevenEleven) {
+        return [
+            lon + taipei711Offset.lng,
+            lat + taipei711Offset.lat
+        ];
+    }
+    
+    return spot.coordinates;
+}
 // spotData 和 spotImageMap 已在 data.js 中定义
 // 初始化地图
 function initMap() {
@@ -73,6 +110,12 @@ function initMap() {
 
     // 添加点击事件
     map.on('click', function(evt) {
+        // 如果开启了坐标拾取调试模式，则优先输出当前点击位置的精确坐标
+        if (coordinateDebugMode) {
+            var lonLat = ol.proj.toLonLat(evt.coordinate);
+            console.log('点击坐标 (WGS84): lat=' + lonLat[1].toFixed(7) + ', lng=' + lonLat[0].toFixed(7));
+        }
+
         var feature = map.forEachFeatureAtPixel(evt.pixel, function(feature) {
             return feature;
         });
@@ -144,18 +187,18 @@ function getSpotStyle(feature) {
         
         colors = disneyColors[category] || disneyColors['themed_area']; // 默认使用主题区域颜色
         styleIcon = colors.icon;
-    } else if (currentMode === 'taipei' && spotData && (spotData.category === 'home' || spotData.category === 'favorite')) {
-        // 台北模式：为“家”和“常逛地”使用特殊颜色与图标
-        var taipeiColors = {
-            'home':     { fill: '#ffcc00', stroke: '#e6b800', center: '#ffffff', icon: '🏠' }, // 家：金黄色小房子
-            'favorite': { fill: '#00c4ff', stroke: '#0099cc', center: '#ffffff', icon: '🛣️' }  // 常逛地：蓝色街道图标
-        };
-        colors = taipeiColors[spotData.category] || taipeiColors['favorite'];
-        styleIcon = colors.icon;
+    } else if (spotData && spotData.isHome) {
+        // 自定义“家”位置：使用红色小房子图标
+        colors = { fill: '#e53935', stroke: '#b71c1c', center: '#ffffff' };
+        styleIcon = '🏠';
     } else if (currentMode === 'wuhanOcean' && spotData && spotData.type === 'show') {
         // 武汉极地海洋公园表演项目：使用橙色区分
         colors = { fill: '#ff6b35', stroke: '#e55a2b', center: '#ffffff' }; // 橙色
         styleIcon = '🎭';
+    } else if (currentMode === 'taipei' && spotData && spotData.isSevenEleven) {
+        // 台北模式下的 7-11 门店使用特殊图标与配色
+        colors = { fill: '#ff9800', stroke: '#e65100', center: '#ffffff' };
+        styleIcon = '🏪';
     } else {
         // 深圳机位模式：根据拍摄类型选择颜色
         var shenzhenColors = {
@@ -170,10 +213,13 @@ function getSpotStyle(feature) {
     // 创建图钉图标
     var pinIcon;
     
-    if ((currentMode === 'disney' && styleIcon) ||
-        (currentMode === 'wuhanOcean' && spotData && spotData.type === 'show' && styleIcon) ||
-        (currentMode === 'taipei' && styleIcon)) {
-        // 迪士尼模式、武汉极地海洋公园表演项目、台北常用点使用emoji图标
+    if (styleIcon && (
+        (currentMode === 'disney') ||
+        (spotData && spotData.isHome) ||
+        (currentMode === 'wuhanOcean' && spotData && spotData.type === 'show') ||
+        (currentMode === 'taipei' && spotData && spotData.isSevenEleven)
+    )) {
+        // 迪士尼模式或武汉极地海洋公园表演项目使用emoji图标
         pinIcon = new ol.style.Icon({
             anchor: [0.5, 1],
             anchorXUnits: 'fraction',
@@ -269,8 +315,9 @@ function createSpotElement(spot) {
         var categoryIcon = disneyConfig.categories[spot.category] ? disneyConfig.categories[spot.category].icon : '📍';
         var categoryName = disneyConfig.categories[spot.category] ? disneyConfig.categories[spot.category].name : spot.category;
         
+        var displayCoords = getDisplayCoordinates(spot) || spot.coordinates;
         extraInfo = `
-            <p><i>📍</i> 距离: ${calculateDistance(spot.coordinates)}km</p>
+            <p><i>📍</i> 距离: ${calculateDistance(displayCoords)}km</p>
             <p><i>💰</i> 价格: ${spot.price}</p>
             <p><i>⭐</i> 评分: ${spot.rating}/5.0</p>
             <p><i>⏰</i> 开放时间: ${spot.operatingHours || spot.bestTime}</p>
@@ -313,8 +360,9 @@ function createSpotElement(spot) {
         var focalLengthText = spot.focalLength || '未指定';
         var metroText = spot.nearbyMetro || '未指定';
         
+        var displayCoords2 = getDisplayCoordinates(spot) || spot.coordinates;
         extraInfo = `
-            <p><i>📍</i> 距离: ${calculateDistance(spot.coordinates)}km</p>
+            <p><i>📍</i> 距离: ${calculateDistance(displayCoords2)}km</p>
             <p><i>💰</i> 价格: ${spot.price}</p>
             <p><i>⭐</i> 评分: ${spot.rating}/5.0</p>
             <p><i>⏰</i> 最佳时间: ${spot.bestTime}</p>
@@ -404,8 +452,9 @@ function addSpotToMap(spotId) {
         return;
     }
 
+    var displayCoords = getDisplayCoordinates(spot) || spot.coordinates;
     var feature = new ol.Feature({
-        geometry: new ol.geom.Point(ol.proj.fromLonLat(spot.coordinates)),
+        geometry: new ol.geom.Point(ol.proj.fromLonLat(displayCoords)),
         spotData: spot,
         type: spot.type,
         status: spot.status,
@@ -586,9 +635,10 @@ function importFilteredSpots() {
     // 批量添加筛选后的地点到地图
     var addedCount = 0;
     filteredSpots.forEach(function(spot) {
-        if (spot.coordinates && spot.coordinates.length === 2) {
+        var displayCoords = getDisplayCoordinates(spot) || spot.coordinates;
+        if (displayCoords && displayCoords.length === 2) {
             var feature = new ol.Feature({
-                geometry: new ol.geom.Point(ol.proj.fromLonLat(spot.coordinates)),
+                geometry: new ol.geom.Point(ol.proj.fromLonLat(displayCoords)),
                 spotData: spot,
                 type: spot.type,
                 status: spot.status,
@@ -610,7 +660,8 @@ function importFilteredSpots() {
     // 如果只有一个地点，自动定位到该地点
     if (filteredSpots.length === 1) {
         var spot = filteredSpots[0];
-        if (spot.coordinates && spot.coordinates.length === 2) {
+        var displayCoords = getDisplayCoordinates(spot) || spot.coordinates;
+        if (displayCoords && displayCoords.length === 2) {
             var currentZoom = map.getView().getZoom();
             var targetZoom;
             if (currentMode === 'disney') {
@@ -622,7 +673,7 @@ function importFilteredSpots() {
                 targetZoom = 15;
             }
             map.getView().animate({
-                center: ol.proj.fromLonLat(spot.coordinates),
+                center: ol.proj.fromLonLat(displayCoords),
                 zoom: targetZoom,
                 duration: 1000
             });
@@ -638,8 +689,9 @@ function fitMapToSpots(spots) {
     var extent = ol.extent.createEmpty();
     
     spots.forEach(function(spot) {
-        if (spot.coordinates && spot.coordinates.length === 2) {
-            var point = ol.proj.fromLonLat(spot.coordinates);
+        var displayCoords = getDisplayCoordinates(spot) || spot.coordinates;
+        if (displayCoords && displayCoords.length === 2) {
+            var point = ol.proj.fromLonLat(displayCoords);
             ol.extent.extend(extent, point);
         }
     });
