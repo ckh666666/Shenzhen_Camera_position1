@@ -5,18 +5,49 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>深圳机位导航 - 专业摄影机位查询平台</title>
     <link href="../css/ol.css" rel="stylesheet" />
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet" />
     <link href="style.css" rel="stylesheet" />
     <script src="../libs/ol5/ol.js"></script>
     <script src="../libs/jquery-1.11.2.min.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
     <!-- Three.js 库用于三维模型查看器 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="data.js"></script>
+    <script src="mapbox-config.js"></script>
     <script src="app.js"></script>
 </head>
 <body>
+    <!-- 3D地球城市入口 -->
+    <div class="globe-intro active" id="globeIntro">
+        <div id="globeMap" aria-label="3D globe city selector"></div>
+        <div class="globe-intro-mask"></div>
+        <div class="globe-intro-panel">
+            <h2 class="globe-intro-title">选择机位城市</h2>
+            <p class="globe-intro-subtitle">先在地球上选择城市，再进入对应的机位探索视图。</p>
+            <div class="globe-selected-city" id="globeSelectedCity">当前目标：深圳</div>
+            <div class="globe-entry-tabs" id="globeEntryTabs">
+                <button class="globe-entry-tab active" type="button" data-group="city">城市机位</button>
+                <button class="globe-entry-tab" type="button" data-group="park">游乐园</button>
+            </div>
+            <div class="globe-city-buttons">
+                <button class="globe-city-btn" data-mode="shenzhen">深圳机位</button>
+                <button class="globe-city-btn" data-mode="suzhou">苏州机位</button>
+                <button class="globe-city-btn" data-mode="wuhan">武汉机位</button>
+                <button class="globe-city-btn" data-mode="wuhanOcean">武汉极地海洋公园</button>
+                <button class="globe-city-btn" data-mode="taipei">台北机位</button>
+                <button class="globe-city-btn" data-mode="disney">香港迪士尼</button>
+            </div>
+            <div class="globe-intro-actions">
+                <button class="globe-start-btn" id="globeStartBtn" data-mode="shenzhen">进入深圳</button>
+                <button class="globe-skip-btn" id="globeSkipBtn">跳过地球入口</button>
+            </div>
+            <div class="globe-token-hint" id="globeTokenHint"></div>
+        </div>
+    </div>
+
     <!-- 顶部导航栏 -->
     <div class="header">
         <div class="logo">
@@ -45,6 +76,7 @@
                     🏰 迪士尼导览
                 </button>
             </div>
+            <button class="nav-btn nav-btn-secondary" onclick="showGlobeIntro()">返回地球</button>
             <button class="nav-btn" onclick="showSpotManager()">机位管理</button>
             <button class="nav-btn" onclick="showRoutePlanner()">路线规划</button>
             <button class="nav-btn" id="showListBtn" onclick="showPerformanceList()" style="display:none;">表演打卡</button>
@@ -75,6 +107,10 @@
             <button class="mobile-nav-close" onclick="toggleMobileNav()">×</button>
         </div>
         <div class="mobile-nav-content">
+            <button class="mobile-nav-item" onclick="showGlobeIntro(); toggleMobileNav();">
+                <span class="nav-item-icon">🌐</span>
+                <span class="nav-item-text">返回地球</span>
+            </button>
             <button class="mobile-nav-item" onclick="showSpotManager(); toggleMobileNav();">
                 <span class="nav-item-icon">📋</span>
                 <span class="nav-item-text">机位管理</span>
@@ -285,6 +321,41 @@
             </div>
             <div class="modal-body" id="performanceModalBody">
                 <!-- 表演表格将通过JavaScript动态生成 -->
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="routePlannerModal">
+        <div class="modal-content route-planner-modal-content">
+            <div class="modal-header route-planner-header">
+                <div>
+                    <div class="modal-title" id="routePlannerTitle">旅行规划</div>
+                    <div class="modal-subtitle" id="routePlannerSubtitle">深圳地区机位路线规划</div>
+                </div>
+                <button class="modal-close" onclick="closeRoutePlanner()">×</button>
+            </div>
+            <div class="modal-body route-planner-body" id="routePlannerBody">
+                <!-- 路线规划内容由 JavaScript 渲染 -->
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-content confirm-modal-content">
+            <div class="modal-header route-planner-header confirm-modal-header">
+                <div>
+                    <div class="modal-title" id="confirmModalTitle">操作确认</div>
+                    <div class="modal-subtitle" id="confirmModalSubtitle">请确认是否继续</div>
+                </div>
+                <button class="modal-close" onclick="closeConfirmModal()">×</button>
+            </div>
+            <div class="modal-body confirm-modal-body">
+                <div class="confirm-modal-icon">!</div>
+                <div class="confirm-modal-message" id="confirmModalMessage">
+                    当前操作可能会清除地图上的路线规划标识。
+                </div>
+                <div class="confirm-modal-actions">
+                    <button class="route-planner-btn ghost" id="confirmModalCancelBtn" onclick="cancelConfirmModal()">取消</button>
+                    <button class="route-planner-btn primary" id="confirmModalConfirmBtn" onclick="confirmModalAction()">确认继续</button>
+                </div>
             </div>
         </div>
     </div>
