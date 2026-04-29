@@ -2,11 +2,44 @@
 // 全局变量
 var map;
 var spotLayer;
+var routePreviewLayer;
 var currentPosition = null;
 var baseLayers = {}; // 存储基础图层
 var currentMode = 'shenzhen'; // 当前模式: 'shenzhen', 'suzhou', 'wuhan', 'wuhanOcean' 或 'disney'
 var currentData = null; // 当前使用的数据集
 var coordinateDebugMode = false; // 是否开启坐标拾取调试模式
+var sceneViewer = null; // 场景体验查看器实例
+var sceneAnimationId = null; // 场景渲染循环ID
+var globeIntroState = {
+    map: null,
+    markers: [],
+    selectedMode: 'shenzhen',
+    selectedGroup: 'city',
+    resizeHandler: null
+};
+var routePlannerState = {
+    visible: false,
+    startPoint: null,
+    startSource: '',
+    selectedSpotIds: [],
+    travelMode: 'walking',
+    optimizeBy: 'duration',
+    roundTrip: false,
+    planning: false,
+    result: null,
+    searchKeyword: '',
+    isPickingStart: false,
+    awaitingCurrentLocation: false,
+    spotListExpanded: false,
+    resultListExpanded: false,
+    mapPreviewActive: false,
+    spotListScrollTop: 0
+};
+var confirmModalState = {
+    visible: false,
+    onConfirm: null,
+    onCancel: null
+};
 
 // 台北 7-11 门店坐标修正偏移量（基于实测对比）
 // 示例：三重區三陽路62號64號
@@ -103,7 +136,15 @@ function initMap() {
         }
     });
 
+    routePreviewLayer = new ol.layer.Vector({
+        source: new ol.source.Vector(),
+        style: function(feature) {
+            return getRoutePreviewStyle(feature);
+        }
+    });
+
     map.addLayer(spotLayer);
+    map.addLayer(routePreviewLayer);
 
     // 确保注记图层可见
     baseLayers.annotation.setVisible(true);
@@ -116,12 +157,22 @@ function initMap() {
             console.log('点击坐标 (WGS84): lat=' + lonLat[1].toFixed(7) + ', lng=' + lonLat[0].toFixed(7));
         }
 
+        if (routePlannerState.isPickingStart) {
+            var pickedLonLat = ol.proj.toLonLat(evt.coordinate);
+            setRoutePlannerStartPoint(pickedLonLat[0], pickedLonLat[1], {
+                source: 'map-click',
+                name: '地图选点出发点'
+            });
+            showMessage('已设置深圳路线出发点');
+            return;
+        }
+
         var feature = map.forEachFeatureAtPixel(evt.pixel, function(feature) {
             return feature;
         });
         
-        if (feature && feature.get('spotData')) {
-            var spotData = feature.get('spotData');
+        if (feature && (feature.get('spotData') || feature.get('routeSpotData'))) {
+            var spotData = feature.get('spotData') || feature.get('routeSpotData');
             
             // 如果是迪士尼模式且点击的是特定主题区域，显示园区详情
             if (currentMode === 'disney' && (spotData.name === '魔雪奇缘世界' || spotData.name === '反斗奇兵大本营' || spotData.name === '迷离庄园' || spotData.name === '灰熊山谷' || spotData.name === '狮子王庆典' || spotData.name === '探险世界' || spotData.name === '奇妙梦想城堡' || spotData.name === '明日世界' || spotData.name === '幻想世界')) {
@@ -289,6 +340,15 @@ function updateSpotList() {
 // 创建机位元素
 function createSpotElement(spot) {
     var div = document.createElement('div');
+    if (document.body.classList.contains('lc-explore')) {
+        div.className = 'spot-item lc-explore-spot';
+        div.innerHTML = buildLensCuratorCardHtml(spot);
+        div.addEventListener('click', function(ev) {
+            if (ev.target.closest('button')) return;
+            showSpotDetails(String(spot.id));
+        });
+        return div;
+    }
     div.className = 'spot-item';
     
     // 生成天气图标
@@ -487,6 +547,331 @@ function ensureSpotLayerOnTop() {
     }
 }
 
+function ensureRoutePreviewLayerOnTop() {
+    if (!map || !routePreviewLayer) {
+        return;
+    }
+
+    var layers = map.getLayers();
+    var routeLayerIndex = layers.getArray().indexOf(routePreviewLayer);
+    var maxIndex = layers.getLength() - 1;
+
+    if (routeLayerIndex !== -1 && routeLayerIndex !== maxIndex) {
+        map.removeLayer(routePreviewLayer);
+        map.addLayer(routePreviewLayer);
+    }
+}
+
+function getRoutePlannerApiBaseUrl() {
+    return 'http://127.0.0.1:5050';
+}
+
+function getRoutePlannerLineStyleConfig(travelMode, segmentType) {
+    var configMap = {
+        walking: {
+            color: 'rgba(241, 146, 55, 0.92)',
+            width: 5,
+            lineDash: [10, 8]
+        },
+        riding: {
+            color: 'rgba(30, 194, 177, 0.92)',
+            width: 5,
+            lineDash: null
+        },
+        driving: {
+            color: 'rgba(22, 148, 207, 0.94)',
+            width: 6,
+            lineDash: null
+        }
+    };
+
+    var config = configMap[travelMode] || configMap.walking;
+
+    if (segmentType === 'crossing') {
+        return {
+            color: config.color,
+            width: Math.max(3, config.width - 1),
+            lineDash: [4, 10]
+        };
+    }
+
+    if (segmentType === 'stairs') {
+        return {
+            color: 'rgba(255, 214, 102, 0.95)',
+            width: Math.max(3, config.width - 1),
+            lineDash: [2, 10]
+        };
+    }
+
+    if (segmentType === 'walkway' && travelMode !== 'walking') {
+        return {
+            color: 'rgba(255, 191, 71, 0.9)',
+            width: Math.max(3, config.width - 1),
+            lineDash: [8, 8]
+        };
+    }
+
+    if (segmentType === 'bikeway' && travelMode !== 'riding') {
+        return {
+            color: 'rgba(41, 217, 124, 0.9)',
+            width: Math.max(3, config.width - 1),
+            lineDash: [12, 8]
+        };
+    }
+
+    return config;
+}
+
+function getRoutePreviewStyle(feature) {
+    var kind = feature.get('kind');
+
+    if (kind === 'route-line') {
+        var lineStyleConfig = getRoutePlannerLineStyleConfig(
+            feature.get('travelMode') || routePlannerState.travelMode,
+            feature.get('segmentType') || ''
+        );
+        return new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                color: lineStyleConfig.color,
+                width: lineStyleConfig.width,
+                lineCap: 'round',
+                lineJoin: 'round',
+                lineDash: lineStyleConfig.lineDash || undefined
+            }),
+            zIndex: 8
+        });
+    }
+
+    var label = feature.get('label') || '';
+    var name = feature.get('name') || '';
+    var fillColor = kind === 'start-point' ? '#1ec2b1' : '#1694cf';
+    var strokeColor = kind === 'start-point' ? '#c7fff4' : '#d7f1ff';
+    var radius = kind === 'start-point' ? 11 : 12;
+
+    var markerStyle = new ol.style.Style({
+        image: new ol.style.Circle({
+            radius: radius,
+            fill: new ol.style.Fill({
+                color: fillColor
+            }),
+            stroke: new ol.style.Stroke({
+                color: strokeColor,
+                width: 2
+            })
+        }),
+        text: new ol.style.Text({
+            text: label,
+            font: 'bold 12px Microsoft YaHei',
+            fill: new ol.style.Fill({
+                color: '#ffffff'
+            }),
+            stroke: new ol.style.Stroke({
+                color: 'rgba(7, 18, 40, 0.55)',
+                width: 3
+            })
+        })
+    });
+
+    if (kind === 'route-stop' && name) {
+        return [
+            markerStyle,
+            new ol.style.Style({
+                text: new ol.style.Text({
+                    text: name,
+                    font: '12px Microsoft YaHei',
+                    fill: new ol.style.Fill({
+                        color: '#f7fbff'
+                    }),
+                    stroke: new ol.style.Stroke({
+                        color: 'rgba(7, 18, 40, 0.8)',
+                        width: 3
+                    }),
+                    offsetY: -20,
+                    textAlign: 'center',
+                    maxWidth: 160,
+                    overflow: true,
+                    textBaseline: 'bottom'
+                })
+            })
+        ];
+    }
+
+    return markerStyle;
+}
+
+function clearRoutePlannerMapPreview() {
+    if (!routePreviewLayer) {
+        return;
+    }
+
+    routePreviewLayer.getSource().clear();
+    routePlannerState.mapPreviewActive = false;
+
+    if (spotLayer) {
+        spotLayer.setVisible(true);
+    }
+}
+
+function hasRoutePlannerOverlay() {
+    if (routePlannerState.visible || routePlannerState.startPoint || routePlannerState.result || routePlannerState.mapPreviewActive) {
+        return true;
+    }
+
+    if (!routePreviewLayer) {
+        return false;
+    }
+
+    return routePreviewLayer.getSource().getFeatures().length > 0;
+}
+
+function clearRoutePlannerAnnotations(options) {
+    options = options || {};
+
+    clearRoutePlannerMapPreview();
+    routePlannerState.startPoint = null;
+    routePlannerState.startSource = '';
+    routePlannerState.result = null;
+    routePlannerState.planning = false;
+    routePlannerState.awaitingCurrentLocation = false;
+    routePlannerState.isPickingStart = false;
+
+    if (options.clearSelection) {
+        routePlannerState.selectedSpotIds = [];
+    }
+
+    if (routePlannerState.visible) {
+        renderRoutePlannerModal();
+    }
+}
+
+function syncRoutePlannerMapPreview() {
+    if (!map || !routePreviewLayer) {
+        return;
+    }
+
+    var source = routePreviewLayer.getSource();
+    source.clear();
+
+    var lineFeatures = [];
+    var pointFeatures = [];
+    var features = [];
+
+    if (routePlannerState.startPoint) {
+        pointFeatures.push(new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat([routePlannerState.startPoint.lng, routePlannerState.startPoint.lat])),
+            kind: 'start-point',
+            label: '起'
+        }));
+    }
+
+    if (routePlannerState.result && routePlannerState.result.orderedStops && routePlannerState.result.orderedStops.length) {
+        var geometryRoute = routePlannerState.result.routeGeometry && routePlannerState.result.routeGeometry.route;
+        var geometryLegs = geometryRoute && Array.isArray(geometryRoute.legs) ? geometryRoute.legs : null;
+
+        routePlannerState.result.orderedStops.forEach(function(stop, index) {
+            pointFeatures.push(new ol.Feature({
+                geometry: new ol.geom.Point(ol.proj.fromLonLat(stop.coordinates)),
+                kind: 'route-stop',
+                label: String(index + 1),
+                name: stop.name || '',
+                routeSpotData: stop.spotData || null
+            }));
+        });
+
+        if (geometryLegs && geometryLegs.length) {
+            geometryLegs.forEach(function(leg) {
+                var stepFeaturesAdded = false;
+
+                if (Array.isArray(leg.steps) && leg.steps.length) {
+                    leg.steps.forEach(function(step) {
+                        if (!Array.isArray(step.polyline) || step.polyline.length < 2) {
+                            return;
+                        }
+
+                        stepFeaturesAdded = true;
+                        lineFeatures.push(new ol.Feature({
+                            geometry: new ol.geom.LineString(step.polyline.map(function(point) {
+                                return ol.proj.fromLonLat(point);
+                            })),
+                            kind: 'route-line',
+                            travelMode: leg.travelMode || routePlannerState.travelMode,
+                            segmentType: step.segmentType || '',
+                            legIndex: leg.seq || 0
+                        }));
+                    });
+                }
+
+                if (!stepFeaturesAdded && Array.isArray(leg.polyline) && leg.polyline.length >= 2) {
+                    lineFeatures.push(new ol.Feature({
+                        geometry: new ol.geom.LineString(leg.polyline.map(function(point) {
+                            return ol.proj.fromLonLat(point);
+                        })),
+                        kind: 'route-line',
+                        travelMode: leg.travelMode || routePlannerState.travelMode,
+                        segmentType: 'road',
+                        legIndex: leg.seq || 0
+                    }));
+                }
+            });
+        } else {
+            var lineCoordinates = [
+                ol.proj.fromLonLat([routePlannerState.startPoint.lng, routePlannerState.startPoint.lat])
+            ];
+
+            routePlannerState.result.orderedStops.forEach(function(stop) {
+                lineCoordinates.push(ol.proj.fromLonLat(stop.coordinates));
+            });
+
+            if (routePlannerState.roundTrip) {
+                lineCoordinates.push(ol.proj.fromLonLat([routePlannerState.startPoint.lng, routePlannerState.startPoint.lat]));
+            }
+
+            lineFeatures.push(new ol.Feature({
+                geometry: new ol.geom.LineString(lineCoordinates),
+                kind: 'route-line',
+                travelMode: routePlannerState.travelMode,
+                segmentType: ''
+            }));
+        }
+
+        routePlannerState.mapPreviewActive = true;
+        if (spotLayer) {
+            spotLayer.setVisible(false);
+        }
+    } else {
+        routePlannerState.mapPreviewActive = false;
+        if (spotLayer) {
+            spotLayer.setVisible(true);
+        }
+    }
+
+    features = lineFeatures.concat(pointFeatures);
+    if (features.length) {
+        source.addFeatures(features);
+        ensureRoutePreviewLayerOnTop();
+    }
+}
+
+function fitMapToRoutePlannerPreview() {
+    if (!map || !routePreviewLayer) {
+        return;
+    }
+
+    var features = routePreviewLayer.getSource().getFeatures();
+    if (!features.length) {
+        return;
+    }
+
+    var extent = routePreviewLayer.getSource().getExtent();
+    if (extent && !ol.extent.isEmpty(extent)) {
+        map.getView().fit(extent, {
+            padding: [80, 80, 80, 80],
+            duration: 700,
+            maxZoom: 15
+        });
+    }
+}
+
 function getFocalLengthCategory(focalLength) {
     if (!focalLength) return '';
     if (focalLength.includes('广角/中长焦')) return 'wide-mid';
@@ -629,6 +1014,21 @@ function importFilteredSpots() {
         return;
     }
 
+    if (hasRoutePlannerOverlay()) {
+        showConfirmModal({
+            title: '导入前确认',
+            subtitle: '路线规划标识将被清除',
+            message: '当前地图上仍保留路线规划起点、机位序号或线路。确认后会先清除这些路线规划标识，再导入当前筛选机位。',
+            confirmText: '确认导入',
+            cancelText: '暂不导入',
+            onConfirm: function() {
+                clearRoutePlannerAnnotations();
+                importFilteredSpots();
+            }
+        });
+        return;
+    }
+
     // 清除现有标注
     spotLayer.getSource().clear();
 
@@ -762,7 +1162,13 @@ function updateFilteredCount() {
         return matchesKeyword && matchesType && matchesFocalLength && matchesEnvironment && matchesWeather && matchesPrice;
     });
 
-    document.getElementById('filteredCount').textContent = filteredSpots.length;
+    var n = filteredSpots.length;
+    var fc = document.getElementById('filteredCount');
+    if (fc) fc.textContent = n;
+    var efc = document.getElementById('exploreFilteredCount');
+    if (efc) efc.textContent = n;
+    var src = document.getElementById('spotResultCount');
+    if (src) src.textContent = n + ' Results';
 }
 
 // 更新筛选后的机位列表
@@ -771,7 +1177,11 @@ function updateSpotListWithFilter(filteredSpots) {
     spotList.innerHTML = '';
 
     if (filteredSpots.length === 0) {
-        spotList.innerHTML = '<div style="text-align: center; padding: 40px; color: #7f8c8d;">没有找到匹配的机位</div>';
+        if (document.body.classList.contains('lc-explore')) {
+            spotList.innerHTML = '<div class="text-center py-12 text-sm text-on-surface-variant">没有找到匹配的机位</div>';
+        } else {
+            spotList.innerHTML = '<div style="text-align: center; padding: 40px; color: #7f8c8d;">没有找到匹配的机位</div>';
+        }
         return;
     }
 
@@ -805,10 +1215,18 @@ function showSpotDetails(spotId) {
 
     // 获取图片路径
     var imagePath = spot.imagePath || spotImageMap[spot.name] || '';
+    var sceneModelPath = spot.sceneModelPath || '';
+    var safeSpotName = (spot.name || '').replace(/'/g, "\\'");
+    var safeSceneModelPath = sceneModelPath.replace(/'/g, "\\'");
     var imageHtml = imagePath ? `
         <div class="image-container">
             <img src="${imagePath}" alt="${spot.name}" class="spot-image" onerror="this.style.display='none'" ondblclick="showFullImage('${imagePath}', '${spot.name}')">
             <div class="image-hint">双击查看大图</div>
+        </div>
+    ` : '';
+    var sceneActionHtml = sceneModelPath ? `
+        <div class="modal-actions scene-entry-actions">
+            <button class="modal-btn primary" onclick="openSceneExperience('${safeSceneModelPath}', '${safeSpotName}')">🎮 场景体验</button>
         </div>
     ` : '';
 
@@ -817,6 +1235,226 @@ function showSpotDetails(spotId) {
     document.getElementById('modalSubtitle').textContent = spot.address;
     
     var modalBody = document.getElementById('modalBody');
+
+    // LensCurator 详情页风格（探索页专用）
+    if (document.body.classList.contains('lc-explore') && !(currentMode === 'wuhanOcean' && spot.type === 'show')) {
+        var coords = getDisplayCoordinates(spot) || spot.coordinates || null;
+        var lat = coords && coords.length === 2 ? coords[1] : null;
+        var lng = coords && coords.length === 2 ? coords[0] : null;
+        var gpsText = (lat != null && lng != null) ? (lat.toFixed(5) + '° N, ' + lng.toFixed(5) + '° E') : '—';
+        var difficultyText = spot.environment === 'indoor' ? 'Indoor / Easy' : 'Outdoor / Moderate';
+
+        var gearTags = [];
+        if (spot.tripodRequired && String(spot.tripodRequired).trim()) gearTags.push('Tripod');
+        if (spot.focalLength && String(spot.focalLength).trim()) {
+            var fl = String(spot.focalLength);
+            if (/广角/.test(fl) || /wide/i.test(fl)) gearTags.push('Wide Angle');
+            if (/长焦/.test(fl) || /tele/i.test(fl)) gearTags.push('Tele');
+            if (/中长焦/.test(fl)) gearTags.push('Mid/Tele');
+        }
+        if (gearTags.length === 0) gearTags = ['Camera'];
+
+        var safeImg = imagePath ? escapeHtml(imagePath) : '';
+        var title = escapeHtml(spot.name || 'Untitled Spot');
+        var subtitle = escapeHtml(spot.address || '');
+        var experienceText = escapeHtml(spot.description || '暂无描述。');
+        var bestTimeText = escapeHtml(spot.bestTime || spot.operatingHours || '—');
+        var ratingText = escapeHtml(String(spot.rating != null ? spot.rating : '—'));
+        var weatherText = escapeHtml(weatherIcons || '—');
+        var metroText = escapeHtml(spot.nearbyMetro || '—');
+        var shootTypeText = escapeHtml(spot.shootingType || (spot.type ? getTypeText(spot.type) : '—'));
+        var envTypeText = escapeHtml(spot.environmentType || environmentText);
+
+        var primaryAction = currentMode === 'disney' ? '添加到导览' : '添加到地图';
+        var facilitiesText = escapeHtml(((spot.facilities || [])).join('、') || '—');
+        var restrictionsText = escapeHtml(((spot.restrictions || [])).join('、') || '—');
+        var tipsText = escapeHtml(spot.shootingTips || spot.tips || '');
+
+        var heroImgHtml = safeImg
+            ? `<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" src="${safeImg}" alt="${title}" onerror="this.style.display='none'" ondblclick="showFullImage('${safeImg}', '${escapeHtml(spot.name || '')}')">`
+            : `<div class="w-full h-full flex items-center justify-center bg-surface-container-low"><span class="material-symbols-outlined text-5xl text-outline">photo_camera</span></div>`;
+
+        var thumbs = safeImg ? `
+            <div class="relative flex-shrink-0 aspect-[4/3] rounded-lg overflow-hidden inner-glow group cursor-pointer border-2 border-primary">
+                <img class="w-full h-full object-cover opacity-80" src="${safeImg}" alt="${title}">
+                <div class="absolute inset-0 bg-surface/20"></div>
+            </div>
+            <div class="relative flex-shrink-0 aspect-[4/3] rounded-lg overflow-hidden inner-glow group cursor-pointer">
+                <img class="w-full h-full object-cover hover:scale-110 transition-transform duration-500" src="${safeImg}" alt="${title}">
+            </div>
+        ` : `
+            <div class="relative flex-shrink-0 aspect-[4/3] rounded-lg overflow-hidden inner-glow group cursor-pointer bg-surface-container-highest flex items-center justify-center">
+                <div class="text-center">
+                    <span class="material-symbols-outlined text-3xl text-primary">add_a_photo</span>
+                    <p class="font-label text-xs uppercase tracking-widest mt-2">No Photo</p>
+                </div>
+            </div>
+        `;
+
+        modalBody.innerHTML = `
+            <div class="max-w-[1440px] mx-auto px-2 md:px-4 py-2 font-body selection:bg-primary-container selection:text-on-primary-container">
+                <section class="grid grid-cols-12 gap-4 md:gap-6 mb-10 md:mb-12">
+                    <div class="col-span-12 lg:col-span-8 relative overflow-hidden rounded-lg group h-[320px] md:h-[420px]">
+                        ${heroImgHtml}
+                        <div class="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent opacity-60"></div>
+                        <div class="absolute bottom-6 left-6">
+                            <span class="font-label text-xs uppercase tracking-[0.2em] text-primary-fixed mb-2 block">Spot Detail</span>
+                            <h1 class="font-headline text-2xl md:text-4xl font-extrabold text-on-surface tracking-tighter leading-none mb-2">${title}</h1>
+                            <p class="text-on-surface-variant flex items-center gap-2 text-sm">
+                                <span class="material-symbols-outlined text-sm">location_on</span> ${subtitle}
+                            </p>
+                        </div>
+                        <div class="absolute top-4 right-4 flex gap-2">
+                            <span class="bg-surface-container-highest/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-primary">Best: ${bestTimeText}</span>
+                            <span class="bg-surface-container-highest/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-tertiary">★ ${ratingText}</span>
+                        </div>
+                    </div>
+                    <div class="hidden lg:flex lg:col-span-4 flex-col gap-4 overflow-y-auto pr-2">
+                        ${thumbs}
+                    </div>
+                </section>
+
+                <div class="grid grid-cols-12 gap-8 md:gap-12">
+                    <div class="col-span-12 lg:col-span-8 space-y-12 md:space-y-16">
+                        <div>
+                            <h2 class="font-headline text-xl md:text-2xl font-bold mb-4 md:mb-6 text-on-surface">The Experience</h2>
+                            <p class="text-on-surface-variant leading-relaxed text-base md:text-lg max-w-2xl">${experienceText}</p>
+                        </div>
+
+                        <section>
+                            <div class="flex items-center justify-between mb-6 md:mb-8">
+                                <h2 class="font-headline text-xl md:text-2xl font-bold text-on-surface">Tips &amp; Community Insights</h2>
+                                <button type="button" class="text-primary font-label text-xs uppercase tracking-[0.1em] flex items-center gap-2 hover:underline" disabled>
+                                    Share Tip <span class="material-symbols-outlined text-sm">edit</span>
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                                <div class="bg-surface-container-low p-5 md:p-6 rounded-lg inner-glow">
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant overflow-hidden"></div>
+                                        <div>
+                                            <p class="text-sm font-bold text-on-surface leading-tight">LensCurator</p>
+                                            <p class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Auto Insight</p>
+                                        </div>
+                                    </div>
+                                    <p class="text-sm text-on-surface-variant leading-relaxed mb-4 italic">“${weatherText}。建议提前到位，预留架设三脚架与构图时间。”</p>
+                                    <div class="flex items-center gap-4">
+                                        <span class="text-[10px] text-primary flex items-center gap-1"><span class="material-symbols-outlined text-xs">thumb_up</span> 42</span>
+                                        <span class="text-[10px] text-on-surface-variant">just now</span>
+                                    </div>
+                                </div>
+                                <div class="bg-surface-container-low p-5 md:p-6 rounded-lg inner-glow">
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant overflow-hidden"></div>
+                                        <div>
+                                            <p class="text-sm font-bold text-on-surface leading-tight">Field Notes</p>
+                                            <p class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Spot Summary</p>
+                                        </div>
+                                    </div>
+                                    <p class="text-sm text-on-surface-variant leading-relaxed mb-4 italic">“拍摄类型：${shootTypeText}；环境：${envTypeText}；地铁：${metroText}。”</p>
+                                    <div class="flex items-center gap-4">
+                                        <span class="text-[10px] text-primary flex items-center gap-1"><span class="material-symbols-outlined text-xs">thumb_up</span> 108</span>
+                                        <span class="text-[10px] text-on-surface-variant">updated</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="bg-surface-container-low p-5 md:p-6 rounded-lg inner-glow">
+                            <h3 class="font-headline text-lg font-bold text-on-surface mb-3">More Details</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-on-surface-variant">
+                                <div><span class="font-bold text-on-surface">设施</span><div class="mt-1">${facilitiesText}</div></div>
+                                <div><span class="font-bold text-on-surface">限制</span><div class="mt-1">${restrictionsText}</div></div>
+                            </div>
+                            ${tipsText ? `<div class="mt-4 text-sm text-on-surface-variant"><span class="font-bold text-on-surface">建议</span><div class="mt-1">${tipsText}</div></div>` : ``}
+                        </section>
+                    </div>
+
+                    <div class="col-span-12 lg:col-span-4 space-y-6">
+                        <div class="bg-surface-container-high rounded-xl p-6 md:p-8 lg:sticky lg:top-4 space-y-7">
+                            <div>
+                                <h3 class="font-label text-xs uppercase tracking-[0.2em] text-primary-fixed mb-4">Essential Info</h3>
+                                <div class="space-y-5">
+                                    <div class="flex items-start gap-4">
+                                        <div class="bg-surface-container-highest p-2 rounded-md"><span class="material-symbols-outlined text-primary">explore</span></div>
+                                        <div>
+                                            <p class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">GPS Coordinates</p>
+                                            <p class="font-bold text-on-surface tabular-nums">${escapeHtml(gpsText)}</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-4">
+                                        <div class="bg-surface-container-highest p-2 rounded-md"><span class="material-symbols-outlined text-tertiary">landscape</span></div>
+                                        <div>
+                                            <p class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Difficulty</p>
+                                            <p class="font-bold text-on-surface">${escapeHtml(difficultyText)}</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-4">
+                                        <div class="bg-surface-container-highest p-2 rounded-md"><span class="material-symbols-outlined text-primary">camera_roll</span></div>
+                                        <div>
+                                            <p class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Best Gear</p>
+                                            <div class="flex flex-wrap gap-2 mt-2">
+                                                ${gearTags.map(t => `<span class="bg-surface-container-lowest px-2 py-1 rounded-sm text-[10px] font-bold border border-outline-variant/30">${escapeHtml(t)}</span>`).join('')}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-6 border-t border-outline-variant/20">
+                                <h3 class="font-label text-xs uppercase tracking-[0.2em] text-primary-fixed mb-4">Quick Actions</h3>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <button type="button" id="lcFocusSpotBtn" class="px-3 py-2 rounded-lg bg-surface-container-lowest text-on-surface border border-outline-variant/30 hover:bg-primary-container/30 text-xs font-semibold">定位到此机位</button>
+                                    <button type="button" id="lcAddSpotBtn" class="px-3 py-2 rounded-lg bg-primary-container text-on-primary-container hover:opacity-90 text-xs font-semibold">${escapeHtml(primaryAction)}</button>
+                                </div>
+                                ${sceneModelPath ? `<button type="button" id="lcSceneBtn" class="mt-3 w-full px-3 py-2 rounded-lg bg-surface-container-highest/60 text-on-surface border border-outline-variant/30 hover:bg-primary-container/30 text-xs font-semibold">3D / 场景体验</button>` : ``}
+                            </div>
+
+                            <div class="rounded-lg overflow-hidden h-36 bg-surface-container-lowest relative group cursor-crosshair border border-outline-variant/20">
+                                <div class="absolute inset-0 bg-[#131b2e] opacity-40"></div>
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <div class="w-4 h-4 bg-primary-container rounded-full animate-pulse border-4 border-primary/20"></div>
+                                </div>
+                                <div class="absolute bottom-3 left-3 glass-card px-3 py-1.5 rounded-full text-[10px] font-bold flex items-center gap-2">
+                                    在地图查看 <span class="material-symbols-outlined text-xs">open_in_new</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 绑定按钮事件（使用闭包保存坐标）
+        var focusBtn = document.getElementById('lcFocusSpotBtn');
+        if (focusBtn) {
+            focusBtn.addEventListener('click', function() {
+                if (!coords || !map) return;
+                try {
+                    map.getView().animate({
+                        center: ol.proj.fromLonLat(coords),
+                        zoom: Math.max(map.getView().getZoom(), 16),
+                        duration: 600
+                    });
+                } catch (e) {}
+            });
+        }
+        var addBtn = document.getElementById('lcAddSpotBtn');
+        if (addBtn) {
+            addBtn.addEventListener('click', function() {
+                addSpotToMap(String(spot.id));
+            });
+        }
+        var sceneBtn = document.getElementById('lcSceneBtn');
+        if (sceneBtn && sceneModelPath) {
+            sceneBtn.addEventListener('click', function() {
+                openSceneExperience(sceneModelPath, spot.name || '');
+            });
+        }
+
+        document.getElementById('spotModal').style.display = 'flex';
+        return;
+    }
     
     // 根据模式显示不同的详情信息
     if (currentMode === 'wuhanOcean' && spot.type === 'show') {
@@ -902,6 +1540,7 @@ function showSpotDetails(spotId) {
         
         modalBody.innerHTML = `
             ${imageHtml}
+            ${sceneActionHtml}
             <div class="spot-info-grid">
                 <div class="info-item">
                     <span class="info-icon">📍</span>
@@ -989,6 +1628,7 @@ function showSpotDetails(spotId) {
         // 深圳机位模式显示
         modalBody.innerHTML = `
             ${imageHtml}
+            ${sceneActionHtml}
             <div class="spot-info-grid">
                 <div class="info-item">
                     <span class="info-icon">📍</span>
@@ -1270,6 +1910,64 @@ function closeImageModal() {
     document.getElementById('imageModal').style.display = 'none';
 }
 
+function disposeSceneExperience() {
+    if (!sceneViewer) return;
+    if (sceneViewer.parentNode) {
+        sceneViewer.parentNode.removeChild(sceneViewer);
+    }
+    sceneViewer = null;
+    sceneAnimationId = null;
+}
+
+function closeSceneModal() {
+    document.getElementById('sceneModal').style.display = 'none';
+    disposeSceneExperience();
+}
+
+function openSceneExperience(modelPath, spotName) {
+    if (!modelPath) {
+        showMessage('该机位暂未配置场景模型');
+        return;
+    }
+
+    var sceneModal = document.getElementById('sceneModal');
+    var sceneLoading = document.getElementById('sceneLoading');
+    var sceneTitle = document.getElementById('sceneModalTitle');
+    var sceneContainer = document.getElementById('sceneCanvasContainer');
+
+    sceneTitle.textContent = spotName + ' - 场景体验';
+    sceneLoading.style.display = 'block';
+    sceneLoading.textContent = '正在加载场景模型...';
+    sceneModal.style.display = 'flex';
+
+    disposeSceneExperience();
+    sceneContainer.innerHTML = '';
+    sceneContainer.appendChild(sceneLoading);
+    
+    var splatPath = modelPath.replace(/\.ply(\?.*)?$/i, '.splat$1');
+    var absoluteSplatUrl = new URL(splatPath, window.location.href).href;
+    var viewerUrl = 'splat-viewer.html?url=' + encodeURIComponent(absoluteSplatUrl);
+
+    var sceneFrame = document.createElement('iframe');
+    sceneFrame.className = 'scene-viewer-frame';
+    sceneFrame.src = viewerUrl;
+    sceneFrame.setAttribute('allow', 'fullscreen');
+    sceneFrame.onload = function() {
+        sceneLoading.style.display = 'none';
+    };
+    sceneFrame.onerror = function() {
+        sceneLoading.style.display = 'block';
+        sceneLoading.textContent = '3DGS加载失败，请检查 .splat 文件路径';
+    };
+
+    sceneViewer = sceneFrame;
+    sceneContainer.appendChild(sceneFrame);
+}
+
+function handleSceneResize() {
+    // iframe 模式下，viewer 自行处理尺寸
+}
+
 // 获取状态文本
 function getStatusText(status) {
     var statuses = {
@@ -1365,8 +2063,9 @@ function toggleTraffic() {
 // 清除所有标注点
 function clearAllSpots() {
     spotLayer.getSource().clear();
+    clearRoutePlannerAnnotations();
     updateSpotCount();
-    showMessage('已清除所有标注点');
+    showMessage('已清除所有标注点和路线规划标记');
 }
 
 // 移动端侧边栏切换
@@ -1420,6 +2119,10 @@ function toggleSidebar() {
     } else {
         document.removeEventListener('click', closeSidebarOnClickOutside);
     }
+
+    // 侧边栏开合会改变地图容器尺寸，刷新地图避免画面比例异常
+    setTimeout(refreshMapLayout, 50);
+    setTimeout(refreshMapLayout, 220);
 }
 
 // 点击外部关闭侧边栏
@@ -1432,6 +2135,8 @@ function closeSidebarOnClickOutside(event) {
         sidebar.classList.remove('active');
         menuBtn.classList.remove('active');
         document.removeEventListener('click', closeSidebarOnClickOutside);
+        setTimeout(refreshMapLayout, 50);
+        setTimeout(refreshMapLayout, 220);
     }
 }
 
@@ -1500,6 +2205,12 @@ function resetView() {
             zoom: disneyConfig.zoom,
             duration: 1000
         });
+    } else if (currentMode === 'taipei' && typeof taipeiConfig !== 'undefined') {
+        map.getView().animate({
+            center: ol.proj.fromLonLat(taipeiConfig.center),
+            zoom: taipeiConfig.zoom,
+            duration: 1000
+        });
     } else if (currentMode === 'suzhou' && typeof suzhouConfig !== 'undefined') {
         map.getView().animate({
             center: ol.proj.fromLonLat(suzhouConfig.center),
@@ -1528,6 +2239,14 @@ function resetView() {
     }
 }
 
+function isRoutePlannerSupportedMode(mode) {
+    return ['shenzhen', 'suzhou', 'wuhan', 'taipei'].indexOf(mode) !== -1;
+}
+
+function getRoutePlannerModeLabel() {
+    return getModeLabel(currentMode);
+}
+
 // 定位我
 function locateMe() {
     if (navigator.geolocation) {
@@ -1554,8 +2273,17 @@ function locateMe() {
                 zoom: 15,
                 duration: 1000
             });
-            
+             
             showMessage(`已定位到您的位置 (精度: ±${Math.round(position.coords.accuracy)}米)`);
+
+            if (routePlannerState.awaitingCurrentLocation) {
+                setRoutePlannerStartPoint(coords[0], coords[1], {
+                    source: 'gps',
+                    name: '当前位置',
+                    accuracy: position.coords.accuracy
+                });
+                fitMapToRoutePlannerPreview();
+            }
         }
 
         // 错误回调函数
@@ -1619,6 +2347,62 @@ function showMessage(message) {
     }, 3000);
 }
 
+function showConfirmModal(options) {
+    options = options || {};
+
+    var modal = document.getElementById('confirmModal');
+    var titleEl = document.getElementById('confirmModalTitle');
+    var subtitleEl = document.getElementById('confirmModalSubtitle');
+    var messageEl = document.getElementById('confirmModalMessage');
+    var confirmBtn = document.getElementById('confirmModalConfirmBtn');
+    var cancelBtn = document.getElementById('confirmModalCancelBtn');
+
+    if (!modal || !titleEl || !subtitleEl || !messageEl || !confirmBtn || !cancelBtn) {
+        return;
+    }
+
+    titleEl.textContent = options.title || '操作确认';
+    subtitleEl.textContent = options.subtitle || '请确认是否继续';
+    messageEl.textContent = options.message || '当前操作可能会影响地图上的已有标识。';
+    confirmBtn.textContent = options.confirmText || '确认继续';
+    cancelBtn.textContent = options.cancelText || '取消';
+
+    confirmModalState.visible = true;
+    confirmModalState.onConfirm = typeof options.onConfirm === 'function' ? options.onConfirm : null;
+    confirmModalState.onCancel = typeof options.onCancel === 'function' ? options.onCancel : null;
+
+    modal.style.display = 'flex';
+}
+
+function closeConfirmModal() {
+    var modal = document.getElementById('confirmModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+
+    confirmModalState.visible = false;
+    confirmModalState.onConfirm = null;
+    confirmModalState.onCancel = null;
+}
+
+function confirmModalAction() {
+    var onConfirm = confirmModalState.onConfirm;
+    closeConfirmModal();
+
+    if (onConfirm) {
+        onConfirm();
+    }
+}
+
+function cancelConfirmModal() {
+    var onCancel = confirmModalState.onCancel;
+    closeConfirmModal();
+
+    if (onCancel) {
+        onCancel();
+    }
+}
+
 // 机位管理
 function showSpotManager() {
     showMessage('机位管理功能开发中...');
@@ -1626,7 +2410,941 @@ function showSpotManager() {
 
 // 路线规划
 function showRoutePlanner() {
-    showMessage('路线规划功能开发中...');
+    if (!isRoutePlannerSupportedMode(currentMode)) {
+        showMessage('当前模式暂未开放路线规划，请切换到深圳、苏州、武汉或台北机位模式');
+        return;
+    }
+
+    routePlannerState.visible = true;
+    routePlannerState.isPickingStart = false;
+    renderRoutePlannerModal();
+    syncRoutePlannerMapPreview();
+
+    var modal = document.getElementById('routePlannerModal');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+function closeRoutePlanner() {
+    routePlannerState.visible = false;
+    routePlannerState.isPickingStart = false;
+    routePlannerState.awaitingCurrentLocation = false;
+
+    var modal = document.getElementById('routePlannerModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function resetRoutePlannerResult() {
+    routePlannerState.result = null;
+    syncRoutePlannerMapPreview();
+}
+
+function getRoutePlannerCandidateSpots() {
+    var data = isRoutePlannerSupportedMode(currentMode) ? (getCurrentData() || []) : [];
+    var keyword = (routePlannerState.searchKeyword || '').trim().toLowerCase();
+
+    return data
+        .filter(function(spot) {
+            if (!spot || !spot.id || !spot.coordinates || spot.coordinates.length !== 2) {
+                return false;
+            }
+
+            if (!keyword) {
+                return true;
+            }
+
+            var searchPool = [
+                spot.name || '',
+                spot.address || '',
+                spot.description || '',
+                spot.shootingType || ''
+            ].join(' ').toLowerCase();
+
+            return searchPool.indexOf(keyword) !== -1;
+        })
+        .sort(function(a, b) {
+            var statusRank = {
+                available: 0,
+                occupied: 1,
+                maintenance: 2
+            };
+            var aRank = statusRank[a.status] != null ? statusRank[a.status] : 9;
+            var bRank = statusRank[b.status] != null ? statusRank[b.status] : 9;
+
+            if (aRank !== bRank) {
+                return aRank - bRank;
+            }
+
+            return (b.rating || 0) - (a.rating || 0);
+        });
+}
+
+function getRoutePlannerSelectedSpots() {
+    var selectedMap = {};
+
+    routePlannerState.selectedSpotIds.forEach(function(id) {
+        selectedMap[id] = true;
+    });
+
+    return (getCurrentData() || []).filter(function(spot) {
+        return selectedMap[spot.id];
+    });
+}
+
+function getRoutePlannerStatusLabel(status) {
+    var labelMap = {
+        available: '可用',
+        occupied: '热门',
+        maintenance: '维护中'
+    };
+
+    return labelMap[status] || '待确认';
+}
+
+function getRoutePlannerStatusClass(status) {
+    var classMap = {
+        available: 'route-planner-status-available',
+        occupied: 'route-planner-status-occupied',
+        maintenance: 'route-planner-status-maintenance'
+    };
+
+    return classMap[status] || '';
+}
+
+function getRoutePlannerTravelModeLabel(mode) {
+    var labelMap = {
+        walking: '步行',
+        riding: '骑行',
+        driving: '驾车'
+    };
+
+    return labelMap[mode] || '步行';
+}
+
+function getRoutePlannerOptimizeLabel(optimizeBy) {
+    return optimizeBy === 'distance' ? '最短距离' : '最短时间';
+}
+
+function formatRoutePlannerCoords(point) {
+    if (!point) {
+        return '尚未设置';
+    }
+
+    return point.lng.toFixed(6) + ', ' + point.lat.toFixed(6);
+}
+
+function getRoutePlannerStatusLabel(status) {
+    var labelMap = {
+        available: '可用',
+        occupied: '热门',
+        maintenance: '维护中'
+    };
+
+    return labelMap[status] || '待确认';
+}
+
+function getRoutePlannerTravelModeLabel(mode) {
+    var labelMap = {
+        walking: '步行',
+        riding: '骑行',
+        driving: '驾车'
+    };
+
+    return labelMap[mode] || '步行';
+}
+
+function getRoutePlannerOptimizeLabel(optimizeBy) {
+    return optimizeBy === 'distance' ? '最短距离' : '最短时间';
+}
+
+function formatRoutePlannerCoords(point) {
+    if (!point) {
+        return '尚未设置';
+    }
+
+    return point.lng.toFixed(6) + ', ' + point.lat.toFixed(6);
+}
+
+function toggleRoutePlannerSection(sectionKey) {
+    if (sectionKey === 'spotList') {
+        routePlannerState.spotListExpanded = !routePlannerState.spotListExpanded;
+    }
+
+    if (sectionKey === 'resultList') {
+        routePlannerState.resultListExpanded = !routePlannerState.resultListExpanded;
+    }
+
+    renderRoutePlannerModal();
+}
+
+function captureRoutePlannerScrollState() {
+    var spotListEl = document.querySelector('#routePlannerBody .route-planner-spot-list');
+    if (!spotListEl) {
+        return;
+    }
+
+    routePlannerState.spotListScrollTop = spotListEl.scrollTop || 0;
+}
+
+function restoreRoutePlannerScrollState() {
+    var spotListEl = document.querySelector('#routePlannerBody .route-planner-spot-list');
+    if (!spotListEl) {
+        return;
+    }
+
+    spotListEl.scrollTop = routePlannerState.spotListScrollTop || 0;
+}
+
+function renderRoutePlannerModal() {
+    if (!routePlannerState.visible) {
+        return;
+    }
+
+    var titleEl = document.getElementById('routePlannerTitle');
+    var subtitleEl = document.getElementById('routePlannerSubtitle');
+    var bodyEl = document.getElementById('routePlannerBody');
+    var modalEl = document.getElementById('routePlannerModal');
+
+    if (!titleEl || !subtitleEl || !bodyEl || !modalEl) {
+        return;
+    }
+
+    captureRoutePlannerScrollState();
+
+    titleEl.textContent = '旅行规划';
+    var routePlannerModeLabel = getRoutePlannerModeLabel();
+    subtitleEl.textContent = routePlannerModeLabel + '地区机位路线规划';
+
+    var startPoint = routePlannerState.startPoint;
+    var candidateSpots = getRoutePlannerCandidateSpots();
+    var selectedSpotIds = routePlannerState.selectedSpotIds;
+    var selectedCount = selectedSpotIds.length;
+    var result = routePlannerState.result;
+    var planning = !!routePlannerState.planning;
+    var shouldCollapseSpotList = candidateSpots.length > 4;
+    var isSpotListExpanded = !shouldCollapseSpotList || routePlannerState.spotListExpanded;
+    var shouldCollapseResultList = !!(result && result.orderedStops && result.orderedStops.length > 3);
+    var isResultListExpanded = !shouldCollapseResultList || routePlannerState.resultListExpanded;
+    var spotToggleLabel = isSpotListExpanded ? '收起列表' : ('展开列表（' + candidateSpots.length + '）');
+    var resultToggleLabel = isResultListExpanded
+        ? '收起结果'
+        : ('展开结果（' + (result && result.orderedStops ? result.orderedStops.length : 0) + '）');
+
+    var startCardHtml = startPoint
+        ? `
+            <div class="route-planner-start-card">
+                <div class="route-planner-start-name">${escapeHtml(startPoint.name || '已设置出发点')}</div>
+                <div class="route-planner-start-meta">来源：${escapeHtml(startPoint.sourceLabel || '自定义起点')}</div>
+                <div class="route-planner-start-coords">坐标：${escapeHtml(formatRoutePlannerCoords(startPoint))}</div>
+                ${startPoint.accuracy ? `<div class="route-planner-start-meta">定位精度：±${Math.round(startPoint.accuracy)} 米</div>` : ''}
+                <div class="route-planner-start-meta">地图上已同步标记该出发点</div>
+            </div>
+        `
+        : `
+            <div class="route-planner-empty">
+                还没有设置出发点。你可以直接使用当前位置，或者临时收起弹层后在地图上点击${escapeHtml(routePlannerModeLabel)}区域中的任意一点。
+            </div>
+        `;
+
+    var spotsHtml = candidateSpots.length
+        ? candidateSpots.map(function(spot) {
+            var selected = selectedSpotIds.indexOf(spot.id) !== -1;
+            var displayCoords = getDisplayCoordinates(spot) || spot.coordinates;
+            var statusClass = getRoutePlannerStatusClass(spot.status);
+            var tagList = [
+                spot.shootingType ? `<span class="route-planner-tag">${escapeHtml(spot.shootingType)}</span>` : '',
+                spot.environment === 'indoor' ? '<span class="route-planner-tag">室内</span>' : '<span class="route-planner-tag">室外</span>',
+                spot.bestTime ? `<span class="route-planner-tag">${escapeHtml(spot.bestTime)}</span>` : ''
+            ].join('');
+
+            return `
+                <label class="route-planner-spot-card ${selected ? 'selected' : ''}">
+                    <input
+                        class="route-planner-spot-check"
+                        type="checkbox"
+                        ${selected ? 'checked' : ''}
+                        onchange="toggleRoutePlannerSpotSelection('${escapeHtml(spot.id)}')"
+                    >
+                    <div class="route-planner-spot-content">
+                        <div class="route-planner-spot-name">${escapeHtml(spot.name || '未命名机位')}</div>
+                        <div class="route-planner-spot-meta">
+                            <span class="${statusClass}">${escapeHtml(getRoutePlannerStatusLabel(spot.status))}</span>
+                            · 评分 ${escapeHtml(String(spot.rating != null ? spot.rating : '暂无'))}
+                        </div>
+                        <div class="route-planner-spot-address">${escapeHtml(spot.address || '暂无地址信息')}</div>
+                        <div class="route-planner-spot-meta">坐标：${escapeHtml(displayCoords[0].toFixed(6) + ', ' + displayCoords[1].toFixed(6))}</div>
+                        <div class="route-planner-spot-tags">${tagList}</div>
+                    </div>
+                </label>
+            `;
+        }).join('')
+        : `<div class="route-planner-empty">没有找到匹配的${escapeHtml(routePlannerModeLabel)}机位，请调整关键词后重试。</div>`;
+
+    var resultHtml = result
+        ? `
+            <div class="route-planner-result-card">
+                <div class="route-planner-result-title">${result.resultSource === 'amap' ? escapeHtml(routePlannerModeLabel + '真实道路规划') : escapeHtml(routePlannerModeLabel + '路线预排版')}</div>
+                <div class="route-planner-result-note">${escapeHtml(result.note)}</div>
+                <div class="route-planner-result-summary">
+                    <div class="route-planner-stat">
+                        <div class="route-planner-stat-label">目标机位</div>
+                        <div class="route-planner-stat-value">${result.selectedCount}</div>
+                    </div>
+                    <div class="route-planner-stat">
+                        <div class="route-planner-stat-label">${result.resultSource === 'amap' ? '道路总里程' : '直线总里程'}</div>
+                        <div class="route-planner-stat-value">${formatRoutePlannerDistanceText(result.totalDistanceKm)}</div>
+                    </div>
+                    <div class="route-planner-stat">
+                        <div class="route-planner-stat-label">${result.totalDurationMinutes != null ? '预计时长' : '规划方式'}</div>
+                        <div class="route-planner-stat-value">${result.totalDurationMinutes != null ? escapeHtml(formatRoutePlannerDurationText(result.totalDurationMinutes)) : escapeHtml(getRoutePlannerTravelModeLabel(routePlannerState.travelMode))}</div>
+                    </div>
+                    <div class="route-planner-stat">
+                        <div class="route-planner-stat-label">优化目标</div>
+                        <div class="route-planner-stat-value">${escapeHtml(getRoutePlannerOptimizeLabel(routePlannerState.optimizeBy))}</div>
+                    </div>
+                </div>
+                ${shouldCollapseResultList ? `
+                    <div class="route-planner-inline-tip">
+                        当前结果已切换为${isResultListExpanded ? '展开' : '收起'}视图，便于同屏查看左侧的出发点、规划参数和当前选择。
+                    </div>
+                ` : ''}
+                <div class="route-planner-result-list ${isResultListExpanded ? 'is-expanded' : 'is-collapsed'}">
+                    ${result.orderedStops.map(function(item, index) {
+                        return `
+                            <div class="route-planner-result-item">
+                                <div class="route-planner-order-badge">${index + 1}</div>
+                                <div>
+                                    <div class="route-planner-result-name">${escapeHtml(item.name)}</div>
+                                    <div class="route-planner-result-meta">
+                                        ${escapeHtml(item.address || '暂无地址信息')}<br>
+                                        ${item.durationFromPreviousMinutes != null
+                                            ? `与上一站道路距离约 ${formatRoutePlannerDistanceText(item.distanceFromPreviousKm)} · 预计 ${formatRoutePlannerDurationText(item.durationFromPreviousMinutes)}`
+                                            : `与上一站直线距离约 ${formatRoutePlannerDistanceText(item.distanceFromPreviousKm)}`}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `
+        : `
+            <div class="route-planner-tip">
+                当前会优先请求后端的高德真实道路距离矩阵；如果本地后端未启动、未配置 Key 或请求失败，会自动回退为前端直线预排版结果。
+            </div>
+        `;
+
+    bodyEl.innerHTML = `
+        <div class="route-planner-layout">
+            <div class="route-planner-sidebar">
+                <section class="route-planner-section">
+                    <div class="route-planner-section-title">1. 出发点</div>
+                    <div class="route-planner-section-desc">支持当前位置和地图点选两种方式。地图点选时会暂时收起弹层，点完自动返回。</div>
+                    <div class="route-planner-actions">
+                        <button class="route-planner-btn primary" onclick="setRoutePlannerStartFromCurrentLocation()">使用当前位置</button>
+                        <button class="route-planner-btn" onclick="enableRoutePlannerStartPickMode()">地图点选起点</button>
+                        <button class="route-planner-btn ghost" onclick="clearRoutePlannerStartPoint()">清空起点</button>
+                    </div>
+                    ${startCardHtml}
+                </section>
+
+                <section class="route-planner-section">
+                    <div class="route-planner-section-title">2. 规划参数</div>
+                    <div class="route-planner-option-grid">
+                        <button class="route-planner-btn ${routePlannerState.travelMode === 'walking' ? 'active' : ''}" onclick="setRoutePlannerTravelMode('walking')">步行</button>
+                        <button class="route-planner-btn ${routePlannerState.travelMode === 'riding' ? 'active' : ''}" onclick="setRoutePlannerTravelMode('riding')">骑行</button>
+                        <button class="route-planner-btn ${routePlannerState.travelMode === 'driving' ? 'active' : ''}" onclick="setRoutePlannerTravelMode('driving')">驾车</button>
+                        <button class="route-planner-btn ${routePlannerState.optimizeBy === 'duration' ? 'active' : ''}" onclick="setRoutePlannerOptimizeBy('duration')">最短时间</button>
+                        <button class="route-planner-btn ${routePlannerState.optimizeBy === 'distance' ? 'active' : ''}" onclick="setRoutePlannerOptimizeBy('distance')">最短距离</button>
+                        <button class="route-planner-btn ${routePlannerState.roundTrip ? 'active' : ''}" onclick="toggleRoutePlannerRoundTrip()">返回起点</button>
+                    </div>
+                </section>
+
+                <section class="route-planner-section">
+                    <div class="route-planner-section-title">3. 当前选择</div>
+                    <div class="route-planner-summary-card">
+                        <div class="route-planner-start-meta">城市：${escapeHtml(routePlannerModeLabel)}</div>
+                        <div class="route-planner-start-meta">已选机位：${selectedCount} / ${candidateSpots.length}</div>
+                        <div class="route-planner-start-meta">出行方式：${escapeHtml(getRoutePlannerTravelModeLabel(routePlannerState.travelMode))}</div>
+                        <div class="route-planner-start-meta">优化目标：${escapeHtml(getRoutePlannerOptimizeLabel(routePlannerState.optimizeBy))}</div>
+                    </div>
+                    <div class="route-planner-result-actions">
+                        <button class="route-planner-btn primary" onclick="submitRoutePlannerPreview()" ${planning ? 'disabled' : ''}>${planning ? '规划中...' : '开始规划'}</button>
+                        <button class="route-planner-btn ghost" onclick="clearRoutePlannerSelection()">清空已选机位</button>
+                    </div>
+                </section>
+            </div>
+
+            <div class="route-planner-main">
+                <section class="route-planner-section">
+                    <div class="route-planner-toolbar">
+                        <div>
+                            <div class="route-planner-section-title">4. 目标机位</div>
+                            <div class="route-planner-toolbar-meta">从${escapeHtml(routePlannerModeLabel)}机位库里挑选需要打卡的目标点${shouldCollapseSpotList ? `，当前为${isSpotListExpanded ? '展开' : '收起'}视图` : ''}</div>
+                        </div>
+                        <div class="route-planner-toolbar-actions">
+                            <button class="route-planner-btn" onclick="selectAllRoutePlannerSpots()">全选当前列表</button>
+                            ${shouldCollapseSpotList ? `<button class="route-planner-btn ghost" onclick="toggleRoutePlannerSection('spotList')">${spotToggleLabel}</button>` : ''}
+                        </div>
+                    </div>
+                    <input
+                        class="route-planner-search"
+                        type="text"
+                        placeholder="搜索${escapeHtml(routePlannerModeLabel)}机位名称、地址或描述"
+                        value="${escapeHtml(routePlannerState.searchKeyword)}"
+                        oninput="updateRoutePlannerSearch(this.value)"
+                    >
+                    <div class="route-planner-spot-list ${isSpotListExpanded ? 'is-expanded' : 'is-collapsed'}">${spotsHtml}</div>
+                </section>
+
+                <section class="route-planner-section">
+                    <div class="route-planner-toolbar route-planner-toolbar-compact">
+                        <div>
+                            <div class="route-planner-section-title">5. 规划结果</div>
+                            <div class="route-planner-toolbar-meta">${result ? '地图会只保留本次选中的机位，并按规划顺序显示序号与线路' : '开始规划后会在地图上只显示已选机位与路线'}</div>
+                        </div>
+                        ${shouldCollapseResultList ? `<button class="route-planner-btn ghost" onclick="toggleRoutePlannerSection('resultList')">${resultToggleLabel}</button>` : ''}
+                    </div>
+                    ${resultHtml}
+                </section>
+            </div>
+        </div>
+    `;
+
+    modalEl.style.display = routePlannerState.isPickingStart ? 'none' : 'flex';
+    restoreRoutePlannerScrollState();
+}
+
+function updateRoutePlannerSearch(value) {
+    routePlannerState.searchKeyword = value || '';
+    resetRoutePlannerResult();
+    renderRoutePlannerModal();
+}
+
+function toggleRoutePlannerSpotSelection(spotId) {
+    var index = routePlannerState.selectedSpotIds.indexOf(spotId);
+
+    if (index === -1) {
+        routePlannerState.selectedSpotIds.push(spotId);
+    } else {
+        routePlannerState.selectedSpotIds.splice(index, 1);
+    }
+
+    resetRoutePlannerResult();
+    renderRoutePlannerModal();
+}
+
+function selectAllRoutePlannerSpots() {
+    routePlannerState.selectedSpotIds = getRoutePlannerCandidateSpots().map(function(spot) {
+        return spot.id;
+    });
+    resetRoutePlannerResult();
+    renderRoutePlannerModal();
+}
+
+function clearRoutePlannerSelection() {
+    routePlannerState.selectedSpotIds = [];
+    resetRoutePlannerResult();
+    renderRoutePlannerModal();
+}
+
+function setRoutePlannerTravelMode(mode) {
+    routePlannerState.travelMode = mode;
+    resetRoutePlannerResult();
+    renderRoutePlannerModal();
+}
+
+function setRoutePlannerOptimizeBy(optimizeBy) {
+    routePlannerState.optimizeBy = optimizeBy;
+    resetRoutePlannerResult();
+    renderRoutePlannerModal();
+}
+
+function toggleRoutePlannerRoundTrip() {
+    routePlannerState.roundTrip = !routePlannerState.roundTrip;
+    resetRoutePlannerResult();
+    renderRoutePlannerModal();
+}
+
+function setRoutePlannerStartFromCurrentLocation() {
+    if (currentPosition && currentPosition.length === 2) {
+        setRoutePlannerStartPoint(currentPosition[0], currentPosition[1], {
+            source: 'gps',
+            name: '当前位置'
+        });
+        fitMapToRoutePlannerPreview();
+        return;
+    }
+
+    routePlannerState.awaitingCurrentLocation = true;
+    locateMe();
+}
+
+function enableRoutePlannerStartPickMode() {
+    routePlannerState.isPickingStart = true;
+    resetRoutePlannerResult();
+
+    var modal = document.getElementById('routePlannerModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+
+    showMessage('请在地图上点击' + getRoutePlannerModeLabel() + '出发点');
+}
+
+function clearRoutePlannerStartPoint() {
+    routePlannerState.startPoint = null;
+    routePlannerState.startSource = '';
+    routePlannerState.awaitingCurrentLocation = false;
+    routePlannerState.isPickingStart = false;
+    resetRoutePlannerResult();
+    renderRoutePlannerModal();
+}
+
+function setRoutePlannerStartPoint(lng, lat, meta) {
+    meta = meta || {};
+    routePlannerState.startPoint = {
+        lng: lng,
+        lat: lat,
+        name: meta.name || '自定义起点',
+        source: meta.source || 'custom',
+        sourceLabel: meta.source === 'gps' ? '当前位置' : (meta.source === 'map-click' ? '地图点选' : '自定义'),
+        accuracy: meta.accuracy || null
+    };
+    routePlannerState.startSource = meta.source || 'custom';
+    routePlannerState.awaitingCurrentLocation = false;
+    routePlannerState.isPickingStart = false;
+    resetRoutePlannerResult();
+    renderRoutePlannerModal();
+}
+
+function calculateRoutePlannerDistanceKm(fromCoords, toCoords) {
+    if (!fromCoords || !toCoords) {
+        return 0;
+    }
+
+    var lon1 = fromCoords[0];
+    var lat1 = fromCoords[1];
+    var lon2 = toCoords[0];
+    var lat2 = toCoords[1];
+    var R = 6371;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLon = (lon2 - lon1) * Math.PI / 180;
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+}
+
+function getRoutePlannerApiBase() {
+    if (window.ROUTE_PLANNER_API_BASE) {
+        return String(window.ROUTE_PLANNER_API_BASE).replace(/\/$/, '');
+    }
+
+    if (window.location.protocol === 'file:') {
+        return 'http://127.0.0.1:5050';
+    }
+
+    return '';
+}
+
+function formatRoutePlannerDistanceText(distanceKm) {
+    if (distanceKm == null || !isFinite(distanceKm)) {
+        return '暂无距离数据';
+    }
+
+    return distanceKm.toFixed(1) + ' km';
+}
+
+function formatRoutePlannerDurationText(durationMinutes) {
+    if (durationMinutes == null || !isFinite(durationMinutes)) {
+        return '暂无时长数据';
+    }
+
+    if (durationMinutes < 1) {
+        return '不足 1 分钟';
+    }
+
+    if (durationMinutes < 60) {
+        return Math.round(durationMinutes) + ' 分钟';
+    }
+
+    var hours = Math.floor(durationMinutes / 60);
+    var minutes = Math.round(durationMinutes % 60);
+    if (minutes === 60) {
+        hours += 1;
+        minutes = 0;
+    }
+
+    return hours + ' 小时' + (minutes ? (' ' + minutes + ' 分钟') : '');
+}
+
+function createRoutePlannerStopRecord(nextSpot, spotData, distanceKm, durationMinutes) {
+    return {
+        id: nextSpot.id,
+        name: nextSpot.name,
+        address: nextSpot.address,
+        coordinates: nextSpot.coordinates.slice(),
+        spotData: spotData || null,
+        distanceFromPreviousKm: distanceKm,
+        durationFromPreviousMinutes: durationMinutes
+    };
+}
+
+function buildRoutePlannerFallbackResult(selectedSpots, payload, fallbackReason) {
+    var selectedSpotMap = {};
+    selectedSpots.forEach(function(spot) {
+        selectedSpotMap[spot.id] = spot;
+    });
+
+    var remaining = selectedSpots.map(function(spot) {
+        return {
+            id: spot.id,
+            name: spot.name,
+            address: spot.address || '',
+            coordinates: (getDisplayCoordinates(spot) || spot.coordinates).slice()
+        };
+    });
+    var currentCoords = [routePlannerState.startPoint.lng, routePlannerState.startPoint.lat];
+    var orderedStops = [];
+    var totalDistanceKm = 0;
+
+    while (remaining.length) {
+        var nearestIndex = 0;
+        var nearestDistance = calculateRoutePlannerDistanceKm(currentCoords, remaining[0].coordinates);
+
+        for (var i = 1; i < remaining.length; i++) {
+            var nextDistance = calculateRoutePlannerDistanceKm(currentCoords, remaining[i].coordinates);
+            if (nextDistance < nearestDistance) {
+                nearestDistance = nextDistance;
+                nearestIndex = i;
+            }
+        }
+
+        var nextSpot = remaining.splice(nearestIndex, 1)[0];
+        totalDistanceKm += nearestDistance;
+        orderedStops.push(
+            createRoutePlannerStopRecord(
+                nextSpot,
+                selectedSpotMap[nextSpot.id],
+                nearestDistance,
+                null
+            )
+        );
+        currentCoords = nextSpot.coordinates.slice();
+    }
+
+    if (routePlannerState.roundTrip) {
+        totalDistanceKm += calculateRoutePlannerDistanceKm(currentCoords, [routePlannerState.startPoint.lng, routePlannerState.startPoint.lat]);
+    }
+
+    return {
+        selectedCount: selectedSpots.length,
+        totalDistanceKm: totalDistanceKm,
+        totalDurationMinutes: null,
+        orderedStops: orderedStops,
+        payloadPreview: payload,
+        note: fallbackReason
+            ? ('高德真实道路距离暂时不可用，当前已回退为前端直线预排版结果。原因：' + fallbackReason)
+            : ('当前是' + getRoutePlannerModeLabel() + '地区的前端预排版结果，基于直线距离的最近邻顺序。下一步会接入高德真实道路距离矩阵和 OR-Tools。'),
+        resultSource: fallbackReason ? 'fallback' : 'preview'
+    };
+}
+
+function getRoutePlannerMatrixMetric(distanceMeters, durationSeconds, optimizeBy) {
+    var preferredValue = optimizeBy === 'distance' ? distanceMeters : durationSeconds;
+    var fallbackValue = optimizeBy === 'distance' ? durationSeconds : distanceMeters;
+
+    if (preferredValue != null && isFinite(preferredValue) && preferredValue > 0) {
+        return preferredValue;
+    }
+
+    if (fallbackValue != null && isFinite(fallbackValue) && fallbackValue > 0) {
+        return fallbackValue;
+    }
+
+    return Infinity;
+}
+
+function buildRoutePlannerResultFromMatrix(selectedSpots, payload, matrixData) {
+    var nodes = matrixData && matrixData.nodes;
+    var distanceMatrix = matrixData && matrixData.distanceMatrix;
+    var durationMatrix = matrixData && matrixData.durationMatrix;
+
+    if (!Array.isArray(nodes) || !Array.isArray(distanceMatrix) || !Array.isArray(durationMatrix)) {
+        throw new Error('路线矩阵返回格式不完整');
+    }
+
+    if (nodes.length !== selectedSpots.length + 1) {
+        throw new Error('路线矩阵节点数量与当前选择不一致');
+    }
+
+    var selectedSpotMap = {};
+    selectedSpots.forEach(function(spot) {
+        selectedSpotMap[spot.id] = spot;
+    });
+
+    var remainingIndices = [];
+    for (var nodeIndex = 1; nodeIndex < nodes.length; nodeIndex++) {
+        remainingIndices.push(nodeIndex);
+    }
+
+    var currentIndex = 0;
+    var orderedStops = [];
+    var totalDistanceMeters = 0;
+    var totalDurationSeconds = 0;
+
+    while (remainingIndices.length) {
+        var nearestPos = 0;
+        var nearestNodeIndex = remainingIndices[0];
+        var nearestDistanceMeters = Number(distanceMatrix[currentIndex][nearestNodeIndex] || 0);
+        var nearestDurationSeconds = Number(durationMatrix[currentIndex][nearestNodeIndex] || 0);
+        var nearestMetric = getRoutePlannerMatrixMetric(nearestDistanceMeters, nearestDurationSeconds, payload.optimizeBy);
+
+        for (var i = 1; i < remainingIndices.length; i++) {
+            var candidateNodeIndex = remainingIndices[i];
+            var candidateDistanceMeters = Number(distanceMatrix[currentIndex][candidateNodeIndex] || 0);
+            var candidateDurationSeconds = Number(durationMatrix[currentIndex][candidateNodeIndex] || 0);
+            var candidateMetric = getRoutePlannerMatrixMetric(candidateDistanceMeters, candidateDurationSeconds, payload.optimizeBy);
+
+            if (candidateMetric < nearestMetric) {
+                nearestMetric = candidateMetric;
+                nearestPos = i;
+                nearestNodeIndex = candidateNodeIndex;
+                nearestDistanceMeters = candidateDistanceMeters;
+                nearestDurationSeconds = candidateDurationSeconds;
+            }
+        }
+
+        if (!isFinite(nearestMetric)) {
+            throw new Error('存在无法到达的目标点，暂时无法生成真实道路规划结果');
+        }
+
+        remainingIndices.splice(nearestPos, 1);
+
+        var node = nodes[nearestNodeIndex];
+        var spotData = selectedSpotMap[node.id] || null;
+        orderedStops.push(
+            createRoutePlannerStopRecord(
+                {
+                    id: node.id,
+                    name: node.name,
+                    address: spotData && spotData.address ? spotData.address : '',
+                    coordinates: [node.lng, node.lat]
+                },
+                spotData,
+                nearestDistanceMeters / 1000,
+                nearestDurationSeconds / 60
+            )
+        );
+
+        totalDistanceMeters += nearestDistanceMeters;
+        totalDurationSeconds += nearestDurationSeconds;
+        currentIndex = nearestNodeIndex;
+    }
+
+    if (payload.roundTrip) {
+        totalDistanceMeters += Number(distanceMatrix[currentIndex][0] || 0);
+        totalDurationSeconds += Number(durationMatrix[currentIndex][0] || 0);
+    }
+
+    return {
+        selectedCount: selectedSpots.length,
+        totalDistanceKm: totalDistanceMeters / 1000,
+        totalDurationMinutes: totalDurationSeconds / 60,
+        orderedStops: orderedStops,
+        payloadPreview: payload,
+        note: (matrixData && matrixData.note) || '已接入高德真实道路距离矩阵，当前结果基于真实道路距离/时长生成。',
+        resultSource: 'amap',
+        routeGeometry: null
+    };
+}
+
+async function requestRoutePlannerMatrix(payload) {
+    const apiUrl = getRoutePlannerApiBaseUrl() + '/api/route-matrix';
+    
+    var response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    });
+
+    var responseData = null;
+    try {
+        responseData = await response.json();
+    } catch (err) {
+        responseData = null;
+    }
+
+    if (!response.ok) {
+        throw new Error(responseData && responseData.error ? responseData.error : '路线矩阵请求失败');
+    }
+
+    return responseData;
+}
+
+function buildRoutePlannerGeometryPayload(payload, orderedStops) {
+    return {
+        city: payload.city,
+        travelMode: payload.travelMode,
+        roundTrip: payload.roundTrip,
+        startPoint: payload.startPoint,
+        orderedTargets: orderedStops.map(function(stop) {
+            return {
+                id: stop.id,
+                name: stop.name,
+                lng: stop.coordinates[0],
+                lat: stop.coordinates[1]
+            };
+        }),
+        includeSteps: true,
+        includePolyline: true
+    };
+}
+
+async function requestRoutePlannerGeometry(payload) {
+    var response = await fetch(getRoutePlannerApiBaseUrl() + '/api/route-geometry', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    });
+
+    var responseData = null;
+    try {
+        responseData = await response.json();
+    } catch (err) {
+        responseData = null;
+    }
+
+    if (!response.ok) {
+        throw new Error(responseData && responseData.error ? responseData.error : '真实路线请求失败');
+    }
+
+    return responseData;
+}
+
+function applyRoutePlannerGeometryToResult(result, geometryData) {
+    if (!result || !geometryData || !geometryData.route) {
+        return result;
+    }
+
+    var route = geometryData.route;
+    var legs = Array.isArray(route.legs) ? route.legs : [];
+
+    result.routeGeometry = geometryData;
+
+    if (route.totalDistance != null && isFinite(route.totalDistance)) {
+        result.totalDistanceKm = Number(route.totalDistance) / 1000;
+    }
+
+    if (route.totalDuration != null && isFinite(route.totalDuration)) {
+        result.totalDurationMinutes = Number(route.totalDuration) / 60;
+    }
+
+    result.orderedStops.forEach(function(stop, index) {
+        var leg = legs[index];
+        if (!leg) {
+            return;
+        }
+
+        if (leg.distance != null && isFinite(leg.distance)) {
+            stop.distanceFromPreviousKm = Number(leg.distance) / 1000;
+        }
+
+        if (leg.duration != null && isFinite(leg.duration)) {
+            stop.durationFromPreviousMinutes = Number(leg.duration) / 60;
+        }
+    });
+
+    result.note = '已根据所选出行方式加载高德真实道路线路，地图预览已切换为真实路径。';
+    return result;
+}
+
+function buildRoutePlannerPayload() {
+    var startPoint = routePlannerState.startPoint;
+    var targets = getRoutePlannerSelectedSpots().map(function(spot) {
+        var coords = getDisplayCoordinates(spot) || spot.coordinates;
+        return {
+            id: spot.id,
+            name: spot.name,
+            lng: coords[0],
+            lat: coords[1]
+        };
+    });
+
+    return {
+        city: currentMode,
+        travelMode: routePlannerState.travelMode,
+        optimizeBy: routePlannerState.optimizeBy,
+        roundTrip: routePlannerState.roundTrip,
+        startPoint: startPoint ? {
+            lng: startPoint.lng,
+            lat: startPoint.lat,
+            name: startPoint.name
+        } : null,
+        targets: targets
+    };
+}
+
+async function submitRoutePlannerPreview() {
+    if (!routePlannerState.startPoint) {
+        showMessage('请先设置路线出发点');
+        return;
+    }
+
+    var selectedSpots = getRoutePlannerSelectedSpots();
+    if (!selectedSpots.length) {
+        showMessage('请至少选择一个' + getRoutePlannerModeLabel() + '机位');
+        return;
+    }
+    var payload = buildRoutePlannerPayload();
+    routePlannerState.planning = true;
+    renderRoutePlannerModal();
+
+    try {
+        var matrixData = await requestRoutePlannerMatrix(payload);
+        var routeResult = buildRoutePlannerResultFromMatrix(selectedSpots, payload, matrixData);
+        var geometryLoaded = false;
+
+        try {
+            var geometryPayload = buildRoutePlannerGeometryPayload(payload, routeResult.orderedStops);
+            var geometryData = await requestRoutePlannerGeometry(geometryPayload);
+            routeResult = applyRoutePlannerGeometryToResult(routeResult, geometryData);
+            geometryLoaded = true;
+        } catch (geometryErr) {
+            routeResult.note = '已获取真实道路距离，但真实路线图暂时加载失败，地图仍显示连线预览。';
+            routeResult.routeGeometry = null;
+            routeResult.routeGeometryError = geometryErr && geometryErr.message ? geometryErr.message : '';
+        }
+
+        routePlannerState.result = routeResult;
+        syncRoutePlannerMapPreview();
+        fitMapToRoutePlannerPreview();
+        renderRoutePlannerModal();
+        showMessage(geometryLoaded ? '已生成真实道路线路图，可直接对比不同出行方式的路径差异。' : '已生成真实道路距离结果，但地图真实路线暂未加载成功。');
+    } catch (err) {
+        routePlannerState.result = buildRoutePlannerFallbackResult(
+            selectedSpots,
+            payload,
+            err && err.message ? err.message : ''
+        );
+        syncRoutePlannerMapPreview();
+        fitMapToRoutePlannerPreview();
+        renderRoutePlannerModal();
+        showMessage('高德道路距离暂时不可用，已回退为直线预排版');
+    } finally {
+        routePlannerState.planning = false;
+        renderRoutePlannerModal();
+    }
 }
 
 // 设置
@@ -2071,6 +3789,14 @@ function updateZoomLevel() {
     document.getElementById('zoomLevel').textContent = zoom;
 }
 
+// 地图容器尺寸变化后，强制刷新 OpenLayers 画布，避免地图被拉伸/变扁
+function refreshMapLayout() {
+    if (!map) return;
+    try {
+        map.updateSize();
+    } catch (e) {}
+}
+
 // 显示最大缩放提示
 function showMaxZoomMessage() {
     // 移除之前的最大缩放提示
@@ -2111,7 +3837,17 @@ function showMaxZoomMessage() {
 // 模式切换函数
 function switchMode(mode) {
     if (currentMode === mode) return;
-    
+
+    if (mode !== 'shenzhen') {
+        routePlannerState.visible = false;
+        clearRoutePlannerAnnotations();
+
+        var routePlannerModal = document.getElementById('routePlannerModal');
+        if (routePlannerModal) {
+            routePlannerModal.style.display = 'none';
+        }
+    }
+     
     currentMode = mode;
     
     // 更新当前数据集
@@ -2122,7 +3858,7 @@ function switchMode(mode) {
     } else if (mode === 'suzhou') {
         currentData = suzhouSpotData;
     } else if (mode === 'wuhan') {
-        currentData = spotData; // 暂时使用深圳数据集，后续可以添加武汉专用数据
+        currentData = wuhanSpotData;
     } else if (mode === 'wuhanOcean') {
         currentData = wuhanOceanSpotData; // 武汉极地海洋公园专用数据
     } else {
@@ -2187,12 +3923,15 @@ function switchMode(mode) {
     };
     
     showMessage(modeMessages[mode] || '已切换模式');
+    setTimeout(refreshMapLayout, 50);
+    setTimeout(refreshMapLayout, 300);
 }
 
 // 更新模式UI
 function updateModeUI() {
-    var logoTitle = document.querySelector('.logo h1');
-    
+    var logoTitle = document.getElementById('exploreLogoTitle') || document.querySelector('.logo h1');
+    var searchTitleEl = document.getElementById('exploreSearchTitleHook') || document.querySelector('.search-title');
+
     // 更新模式按钮状态（桌面端和移动端）
     var shenzhenBtn = document.getElementById('shenzhenModeBtn');
     var suzhouBtn = document.getElementById('suzhouModeBtn');
@@ -2219,8 +3958,8 @@ function updateModeUI() {
     var performanceCheckInBtn = document.getElementById('performanceCheckInBtn');
     
     if (currentMode === 'disney') {
-        logoTitle.textContent = '香港迪士尼导览';
-        document.querySelector('.search-title').textContent = '🏰 景点搜索';
+        if (logoTitle) logoTitle.textContent = '香港迪士尼导览';
+        if (searchTitleEl) searchTitleEl.textContent = '🏰 景点搜索';
 
         if (searchSection) searchSection.style.display = 'block';
 
@@ -2234,8 +3973,8 @@ function updateModeUI() {
         
         updateDisneyFilters();
     } else if (currentMode === 'taipei') {
-        logoTitle.textContent = '台北机位导航';
-        document.querySelector('.search-title').textContent = '🔍 机位搜索';
+        if (logoTitle) logoTitle.textContent = '台北机位导航';
+        if (searchTitleEl) searchTitleEl.textContent = '🔍 机位搜索';
 
         if (searchSection) searchSection.style.display = 'block';
 
@@ -2249,8 +3988,8 @@ function updateModeUI() {
 
         updateShenzhenFilters();
     } else if (currentMode === 'suzhou') {
-        logoTitle.textContent = '苏州机位导航';
-        document.querySelector('.search-title').textContent = '🔍 机位搜索';
+        if (logoTitle) logoTitle.textContent = '苏州机位导航';
+        if (searchTitleEl) searchTitleEl.textContent = '🔍 机位搜索';
         
         if (searchSection) searchSection.style.display = 'block';
 
@@ -2264,8 +4003,8 @@ function updateModeUI() {
         
         updateShenzhenFilters();
     } else if (currentMode === 'wuhan') {
-        logoTitle.textContent = '武汉机位导航';
-        document.querySelector('.search-title').textContent = '🔍 机位搜索';
+        if (logoTitle) logoTitle.textContent = '武汉机位导航';
+        if (searchTitleEl) searchTitleEl.textContent = '🔍 机位搜索';
         
         if (searchSection) searchSection.style.display = 'block';
 
@@ -2279,8 +4018,8 @@ function updateModeUI() {
         
         updateShenzhenFilters();
     } else if (currentMode === 'wuhanOcean') {
-        logoTitle.textContent = '武汉极地海洋公园导览';
-        document.querySelector('.search-title').textContent = '🔍 机位搜索';
+        if (logoTitle) logoTitle.textContent = '武汉极地海洋公园导览';
+        if (searchTitleEl) searchTitleEl.textContent = '🔍 机位搜索';
         
         if (searchSection) searchSection.style.display = 'block';
 
@@ -2315,8 +4054,8 @@ function updateModeUI() {
         // 在地图控制面板中显示重置视图按钮，隐藏表演打卡按钮
         if (viewControlBtn) viewControlBtn.style.display = 'block';
         if (performanceCheckInBtn) performanceCheckInBtn.style.display = 'none';
-        logoTitle.textContent = '深圳机位导航';
-        document.querySelector('.search-title').textContent = '🔍 机位搜索';
+        if (logoTitle) logoTitle.textContent = '深圳机位导航';
+        if (searchTitleEl) searchTitleEl.textContent = '🔍 机位搜索';
         
         if (searchSection) searchSection.style.display = 'block';
 
@@ -2331,6 +4070,7 @@ function updateModeUI() {
 // 更新深圳模式筛选器
 function updateShenzhenFilters() {
     var shootingTypeFilter = document.getElementById('shootingTypeFilter');
+    if (!shootingTypeFilter) return;
     shootingTypeFilter.innerHTML = `
         <option value="all">所有拍摄类型</option>
         <option value="建筑">建筑摄影</option>
@@ -2342,6 +4082,7 @@ function updateShenzhenFilters() {
 // 更新迪士尼模式筛选器
 function updateDisneyFilters() {
     var shootingTypeFilter = document.getElementById('shootingTypeFilter');
+    if (!shootingTypeFilter) return;
     shootingTypeFilter.innerHTML = `
         <option value="all">所有区域类型</option>
         <option value="transport">交通接驳</option>
@@ -2358,12 +4099,680 @@ function getCurrentData() {
     return currentData || spotData;
 }
 
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function safeSpotIdForAttr(id) {
+    return String(id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function buildLensCuratorCardHtml(spot) {
+    var imgPath = spot.imagePath || (typeof spotImageMap !== 'undefined' ? spotImageMap[spot.name] : '') || '';
+    var coords = getDisplayCoordinates(spot) || spot.coordinates;
+    var distStr = coords ? calculateDistance(coords) : '—';
+    if (distStr && distStr !== '未知' && distStr !== '—') {
+        distStr = distStr + ' km';
+    }
+    var rating = spot.rating != null ? spot.rating : '—';
+    var bestRaw = (spot.bestTime || spot.operatingHours || '—').toString();
+    var badgeClass = 'text-primary';
+    if (/金|黄昏|日落/.test(bestRaw)) badgeClass = 'text-tertiary';
+    else if (/蓝|晨|夜|晚/.test(bestRaw)) badgeClass = 'text-[#afc6ff]';
+
+    var subtitleParts = [];
+    if (currentMode === 'disney' && spot.category && typeof disneyConfig !== 'undefined' && disneyConfig.categories && disneyConfig.categories[spot.category]) {
+        subtitleParts.push(disneyConfig.categories[spot.category].name);
+    } else if (spot.shootingType) {
+        subtitleParts.push(spot.shootingType);
+    } else if (spot.type) {
+        subtitleParts.push(getTypeText(spot.type));
+    }
+    subtitleParts.push(distStr);
+    var subtitle = subtitleParts.filter(Boolean).join(' · ');
+
+    var imgBlock = imgPath
+        ? '<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" src="' + escapeHtml(imgPath) + '" alt="' + escapeHtml(spot.name) + '" loading="lazy" onerror="this.style.display=\'none\'"/>'
+        : '<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-surface-container-high to-surface-container-low"><span class="material-symbols-outlined text-4xl text-outline">photo_camera</span></div>';
+
+    var sid = safeSpotIdForAttr(spot.id);
+    return (
+        '<div class="group lc-spot-card cursor-pointer" data-spot-id="' + escapeHtml(spot.id) + '">' +
+        '<div class="relative h-44 md:h-48 mb-3 rounded-lg overflow-hidden bg-surface-container-low ring-1 ring-inset ring-white/5">' + imgBlock +
+        '<div class="absolute top-3 right-3"><span class="bg-surface-container-highest/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ' + badgeClass + '">Best: ' + escapeHtml(bestRaw) + '</span></div></div>' +
+        '<div class="flex justify-between items-start gap-3">' +
+        '<div class="min-w-0"><h3 class="text-base md:text-lg font-headline font-bold text-on-surface leading-tight truncate">' + escapeHtml(spot.name) + '</h3>' +
+        '<p class="text-xs md:text-sm text-on-surface-variant mt-1 line-clamp-2">' + escapeHtml(subtitle) + '</p></div>' +
+        '<div class="flex flex-col items-end gap-2 shrink-0">' +
+        '<div class="flex items-center gap-1 bg-surface-container-high px-2 py-1 rounded"><span class="material-symbols-outlined text-tertiary text-sm" style="font-variation-settings: \'FILL\' 1;">star</span>' +
+        '<span class="text-xs font-bold text-on-surface">' + escapeHtml(String(rating)) + '</span></div>' +
+        '<div class="lc-card-actions flex flex-wrap gap-1 justify-end">' +
+        '<button type="button" onclick="event.stopPropagation(); addSpotToMap(\'' + sid + '\')">地图</button>' +
+        '<button type="button" onclick="event.stopPropagation(); showSpotDetails(\'' + sid + '\')">详情</button>' +
+        '</div></div></div></div>'
+    );
+}
+
+function applyLensFilterChip(which) {
+    var st = document.getElementById('shootingTypeFilter');
+    var si = document.getElementById('searchInput');
+    if (!st || !si) return;
+
+    if (which === 'all') {
+        st.value = 'all';
+        si.value = '';
+    } else if (which === 'night') {
+        st.value = 'all';
+        si.value = '夜';
+    } else if (which === 'sunset') {
+        st.value = 'all';
+        si.value = '黄昏';
+    } else if (which === 'drone') {
+        st.value = 'all';
+        si.value = '航拍';
+    } else if (which === 'arch') {
+        if (currentMode === 'disney') {
+            st.value = 'photography';
+        } else {
+            st.value = '建筑';
+        }
+        si.value = '';
+    }
+    document.querySelectorAll('[data-lc-chip]').forEach(function(b) {
+        var active = b.getAttribute('data-lc-chip') === which;
+        b.classList.toggle('bg-primary-container', active);
+        b.classList.toggle('text-on-primary-container', active);
+        b.classList.toggle('bg-surface-container-high', !active);
+        b.classList.toggle('text-on-surface-variant', !active);
+        b.classList.toggle('hover:text-on-surface', !active);
+    });
+    searchSpots();
+}
+
+function initLensExploreChrome() {
+    if (!document.body.classList.contains('lc-explore') || typeof map === 'undefined' || !map) return;
+
+    function updateCoords() {
+        var c = map.getView().getCenter();
+        if (!c) return;
+        var ll = ol.proj.toLonLat(c);
+        var latEl = document.getElementById('exploreMapLat');
+        var lngEl = document.getElementById('exploreMapLng');
+        if (latEl) {
+            latEl.textContent = Math.abs(ll[1]).toFixed(4) + '° ' + (ll[1] >= 0 ? 'N' : 'S');
+        }
+        if (lngEl) {
+            lngEl.textContent = Math.abs(ll[0]).toFixed(4) + '° ' + (ll[0] >= 0 ? 'E' : 'W');
+        }
+    }
+    updateCoords();
+    map.on('moveend', updateCoords);
+
+    var zi = document.getElementById('mapZoomIn');
+    var zo = document.getElementById('mapZoomOut');
+    var loc = document.getElementById('mapLocateBtn');
+    if (zi) {
+        zi.addEventListener('click', function() {
+            var v = map.getView();
+            v.animate({ zoom: v.getZoom() + 1, duration: 200 });
+        });
+    }
+    if (zo) {
+        zo.addEventListener('click', function() {
+            var v = map.getView();
+            v.animate({ zoom: v.getZoom() - 1, duration: 200 });
+        });
+    }
+    if (loc) {
+        loc.addEventListener('click', function() {
+            locateMe();
+        });
+    }
+
+    document.querySelectorAll('[data-lc-chip]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            applyLensFilterChip(btn.getAttribute('data-lc-chip'));
+        });
+    });
+}
+
+function getModeLabel(mode) {
+    var modeTextMap = {
+        shenzhen: '深圳',
+        suzhou: '苏州',
+        wuhan: '武汉',
+        wuhanOcean: '武汉极地海洋公园',
+        taipei: '台北',
+        disney: '香港迪士尼'
+    };
+    return modeTextMap[mode] || '深圳';
+}
+
+function getGlobeAccessToken() {
+    return String(window.MAPBOX_ACCESS_TOKEN || window.MAPBOX_TOKEN || '').trim();
+}
+
+function getGlobeModeGroup(mode) {
+    return (mode === 'wuhanOcean' || mode === 'disney') ? 'park' : 'city';
+}
+
+function getDefaultGlobeModeForGroup(group) {
+    return group === 'park' ? 'wuhanOcean' : 'shenzhen';
+}
+
+function getGlobeCityRegistry() {
+    return [
+        { mode: 'shenzhen', label: '深圳', coordinates: [114.0579, 22.5431], zoom: 4.8, pitch: 12, color: '#7bd7ff' },
+        { mode: 'suzhou', label: '苏州', coordinates: suzhouConfig.center, zoom: 5.0, pitch: 14, color: '#96e2c7' },
+        { mode: 'wuhan', label: '武汉', coordinates: wuhanConfig.center, zoom: 5.0, pitch: 14, color: '#ffd37d' },
+        { mode: 'wuhanOcean', label: '武汉极地海洋公园', coordinates: wuhanOceanConfig.center, zoom: 6.6, pitch: 24, color: '#78e0ff' },
+        { mode: 'taipei', label: '台北', coordinates: taipeiConfig.center, zoom: 5.3, pitch: 16, color: '#ffb2c1' },
+        { mode: 'disney', label: '香港迪士尼', coordinates: disneyConfig.center, zoom: 6.8, pitch: 26, color: '#ffe08b' }
+    ];
+}
+
+function getGlobeCityByMode(mode) {
+    var cities = getGlobeCityRegistry();
+    for (var i = 0; i < cities.length; i++) {
+        if (cities[i].mode === mode) {
+            return cities[i];
+        }
+    }
+    return cities[0];
+}
+
+function setGlobeTokenHint(message) {
+    var hint = document.getElementById('globeTokenHint');
+    if (!hint) return;
+    hint.textContent = message || '';
+    hint.classList.toggle('visible', !!message);
+}
+
+function updateGlobeSelectionUI(city) {
+    if (!city) return;
+
+    var selectedCity = document.getElementById('globeSelectedCity');
+    var startBtn = document.getElementById('globeStartBtn');
+
+    if (selectedCity) {
+        selectedCity.textContent = '当前目标：' + city.label;
+    }
+
+    if (startBtn) {
+        startBtn.setAttribute('data-mode', city.mode);
+        startBtn.textContent = '进入' + city.label;
+    }
+
+    document.querySelectorAll('.globe-city-btn').forEach(function(btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-mode') === city.mode);
+    });
+}
+
+function createGlobeMarkerElement(city) {
+    var marker = document.createElement('button');
+    var dot = document.createElement('span');
+    var label = document.createElement('span');
+
+    marker.type = 'button';
+    marker.className = 'globe-poi-marker';
+    marker.setAttribute('data-mode', city.mode);
+    marker.setAttribute('aria-label', '选择 ' + city.label);
+    marker.style.setProperty('--poi-color', city.color);
+    dot.className = 'globe-poi-dot';
+    label.className = 'globe-poi-label';
+    label.textContent = city.label;
+
+    marker.appendChild(dot);
+    marker.appendChild(label);
+
+    marker.addEventListener('click', function(evt) {
+        evt.stopPropagation();
+        selectGlobeMode(city.mode);
+    });
+
+    return marker;
+}
+
+function disposeGlobeIntroScene() {
+    globeIntroState.markers.forEach(function(item) {
+        if (item.marker) {
+            item.marker.remove();
+        }
+    });
+    globeIntroState.markers = [];
+
+    if (globeIntroState.map) {
+        globeIntroState.map.remove();
+        globeIntroState.map = null;
+    }
+
+    if (globeIntroState.resizeHandler) {
+        window.removeEventListener('resize', globeIntroState.resizeHandler);
+        globeIntroState.resizeHandler = null;
+    }
+}
+
+function renderGlobeCityMarkers() {
+    if (!globeIntroState.map || typeof mapboxgl === 'undefined') return;
+
+    globeIntroState.markers.forEach(function(item) {
+        if (item.marker) {
+            item.marker.remove();
+        }
+    });
+    globeIntroState.markers = [];
+
+    getGlobeCityRegistry().forEach(function(city) {
+        var element = createGlobeMarkerElement(city);
+        var marker = new mapboxgl.Marker({
+            element: element,
+            anchor: 'center'
+        }).setLngLat(city.coordinates).addTo(globeIntroState.map);
+
+        globeIntroState.markers.push({
+            mode: city.mode,
+            marker: marker,
+            element: element
+        });
+    });
+}
+
+function selectGlobeMode(mode, options) {
+    var city = getGlobeCityByMode(mode);
+    var shouldFly = !options || options.fly !== false;
+
+    globeIntroState.selectedMode = city.mode;
+    updateGlobeSelectionUI(city);
+
+    globeIntroState.markers.forEach(function(item) {
+        if (item.element) {
+            item.element.classList.toggle('active', item.mode === city.mode);
+        }
+    });
+
+    if (shouldFly && globeIntroState.map) {
+        globeIntroState.map.flyTo({
+            center: city.coordinates,
+            zoom: city.zoom,
+            pitch: city.pitch || 0,
+            duration: options && options.duration ? options.duration : 1600,
+            essential: true
+        });
+    }
+}
+
+function hideGlobeIntro() {
+    var intro = document.getElementById('globeIntro');
+    if (intro) {
+        intro.classList.remove('active');
+    }
+    disposeGlobeIntroScene();
+}
+
+function enterModeFromGlobe(mode) {
+    var targetMode = mode || globeIntroState.selectedMode || 'shenzhen';
+    if (typeof switchMode === 'function') {
+        switchMode(targetMode);
+    }
+    hideGlobeIntro();
+}
+
+function showGlobeIntro(mode) {
+    var intro = document.getElementById('globeIntro');
+    var navPanel = document.getElementById('mobileNavPanel');
+    var navBtn = document.getElementById('mobileNavBtn');
+    var navOverlay = document.getElementById('mobileNavOverlay');
+
+    if (!intro) return;
+
+    if (navPanel) navPanel.classList.remove('active');
+    if (navBtn) navBtn.classList.remove('active');
+    if (navOverlay) navOverlay.classList.remove('active');
+
+    globeIntroState.selectedMode = mode || currentMode || 'shenzhen';
+    initGlobeIntro();
+}
+
+function initGlobeIntro() {
+    var intro = document.getElementById('globeIntro');
+    var globeContainer = document.getElementById('globeMap');
+    var cityButtons = document.querySelectorAll('.globe-city-btn');
+    var startBtn = document.getElementById('globeStartBtn');
+    var skipBtn = document.getElementById('globeSkipBtn');
+    var accessToken = getGlobeAccessToken();
+
+    if (!intro) return;
+
+    intro.classList.add('active');
+    disposeGlobeIntroScene();
+    selectGlobeMode(globeIntroState.selectedMode || 'shenzhen', { fly: false });
+
+    cityButtons.forEach(function(btn) {
+        if (btn.getAttribute('data-globe-bound') === '1') return;
+        btn.setAttribute('data-globe-bound', '1');
+        btn.addEventListener('click', function() {
+            var mode = btn.getAttribute('data-mode') || 'shenzhen';
+            selectGlobeMode(mode);
+        });
+    });
+
+    if (startBtn && startBtn.getAttribute('data-globe-bound') !== '1') {
+        startBtn.setAttribute('data-globe-bound', '1');
+        startBtn.addEventListener('click', function() {
+            enterModeFromGlobe(startBtn.getAttribute('data-mode') || globeIntroState.selectedMode || 'shenzhen');
+        });
+    }
+
+    if (skipBtn && skipBtn.getAttribute('data-globe-bound') !== '1') {
+        skipBtn.setAttribute('data-globe-bound', '1');
+        skipBtn.addEventListener('click', function() {
+            enterModeFromGlobe('shenzhen');
+        });
+    }
+
+    if (typeof mapboxgl === 'undefined' || !globeContainer) {
+        setGlobeTokenHint('Mapbox GL JS 未成功加载，右侧城市按钮仍然可以进入对应机位页面。');
+        return;
+    }
+
+    if (!accessToken) {
+        setGlobeTokenHint('未检测到 Mapbox Token，请在 mapbox-config.js 中填写 pk 开头的公开 Token。');
+        return;
+    }
+
+    setGlobeTokenHint('');
+    mapboxgl.accessToken = accessToken;
+
+    var globeMap = new mapboxgl.Map({
+        container: globeContainer,
+        style: 'mapbox://styles/mapbox/dark-v11',
+        center: [107, 28],
+        zoom: 1.45,
+        projection: 'globe',
+        antialias: true
+    });
+
+    globeMap.addControl(new mapboxgl.NavigationControl({
+        visualizePitch: true
+    }), 'top-left');
+
+    globeMap.on('style.load', function() {
+        globeMap.setFog({
+            color: 'rgb(186, 210, 235)',
+            'high-color': 'rgb(36, 92, 223)',
+            'space-color': 'rgb(11, 11, 25)',
+            'star-intensity': 0.6
+        });
+    });
+
+    globeMap.on('load', function() {
+        renderGlobeCityMarkers();
+        selectGlobeMode(globeIntroState.selectedMode || 'shenzhen', { fly: false });
+    });
+
+    globeMap.on('error', function() {
+        setGlobeTokenHint('Mapbox 地球加载失败，请检查 mapbox-config.js 中的公开 Token。');
+    });
+
+    function onResize() {
+        if (!globeIntroState.map) return;
+        globeIntroState.map.resize();
+    }
+    window.addEventListener('resize', onResize);
+
+    globeIntroState.map = globeMap;
+    globeIntroState.resizeHandler = onResize;
+}
+
 // 页面加载完成后初始化
+function getGlobeCityRegistry() {
+    return [
+        { mode: 'shenzhen', label: '深圳', group: 'city', coordinates: [114.0579, 22.5431], zoom: 4.8, pitch: 12, color: '#7bd7ff' },
+        { mode: 'suzhou', label: '苏州', group: 'city', coordinates: suzhouConfig.center, zoom: 5.0, pitch: 14, color: '#96e2c7' },
+        { mode: 'wuhan', label: '武汉', group: 'city', coordinates: wuhanConfig.center, zoom: 5.0, pitch: 14, color: '#ffd37d' },
+        { mode: 'taipei', label: '台北', group: 'city', coordinates: taipeiConfig.center, zoom: 5.3, pitch: 16, color: '#ffb2c1' },
+        { mode: 'wuhanOcean', label: '武汉极地海洋公园', group: 'park', coordinates: wuhanOceanConfig.center, zoom: 6.6, pitch: 24, color: '#78e0ff' },
+        { mode: 'disney', label: '香港迪士尼', group: 'park', coordinates: disneyConfig.center, zoom: 6.8, pitch: 26, color: '#ffe08b' }
+    ];
+}
+
+function getGlobeCityByMode(mode) {
+    var cities = getGlobeCityRegistry();
+    for (var i = 0; i < cities.length; i++) {
+        if (cities[i].mode === mode) {
+            return cities[i];
+        }
+    }
+    return cities[0];
+}
+
+function getVisibleGlobeCities() {
+    var selectedGroup = globeIntroState.selectedGroup || 'city';
+    return getGlobeCityRegistry().filter(function(city) {
+        return (city.group || getGlobeModeGroup(city.mode)) === selectedGroup;
+    });
+}
+
+function updateGlobeGroupUI() {
+    var selectedGroup = globeIntroState.selectedGroup || 'city';
+
+    document.querySelectorAll('.globe-entry-tab').forEach(function(tab) {
+        tab.classList.toggle('active', tab.getAttribute('data-group') === selectedGroup);
+    });
+
+    document.querySelectorAll('.globe-city-btn').forEach(function(btn) {
+        var mode = btn.getAttribute('data-mode') || '';
+        var buttonGroup = btn.getAttribute('data-group') || getGlobeModeGroup(mode);
+        var isVisible = buttonGroup === selectedGroup;
+        btn.classList.toggle('globe-hidden', !isVisible);
+        btn.disabled = !isVisible;
+    });
+}
+
+function setGlobeEntryGroup(group, options) {
+    var nextGroup = group === 'park' ? 'park' : 'city';
+    var selectedMode = globeIntroState.selectedMode || getDefaultGlobeModeForGroup(nextGroup);
+    var shouldFly = !options || options.fly !== false;
+
+    globeIntroState.selectedGroup = nextGroup;
+
+    if (getGlobeModeGroup(selectedMode) !== nextGroup) {
+        selectedMode = getDefaultGlobeModeForGroup(nextGroup);
+    }
+
+    updateGlobeGroupUI();
+    renderGlobeCityMarkers();
+    selectGlobeMode(selectedMode, { fly: shouldFly });
+}
+
+function renderGlobeCityMarkers() {
+    if (!globeIntroState.map || typeof mapboxgl === 'undefined') return;
+
+    globeIntroState.markers.forEach(function(item) {
+        if (item.marker) {
+            item.marker.remove();
+        }
+    });
+    globeIntroState.markers = [];
+
+    getVisibleGlobeCities().forEach(function(city) {
+        var element = createGlobeMarkerElement(city);
+        var marker = new mapboxgl.Marker({
+            element: element,
+            anchor: 'center'
+        }).setLngLat(city.coordinates).addTo(globeIntroState.map);
+
+        globeIntroState.markers.push({
+            mode: city.mode,
+            marker: marker,
+            element: element
+        });
+    });
+}
+
+function selectGlobeMode(mode, options) {
+    var city = getGlobeCityByMode(mode);
+    var shouldFly = !options || options.fly !== false;
+
+    globeIntroState.selectedMode = city.mode;
+    updateGlobeSelectionUI(city);
+
+    globeIntroState.markers.forEach(function(item) {
+        if (item.element) {
+            item.element.classList.toggle('active', item.mode === city.mode);
+        }
+    });
+
+    if (shouldFly && globeIntroState.map) {
+        globeIntroState.map.flyTo({
+            center: city.coordinates,
+            zoom: city.zoom,
+            pitch: city.pitch || 0,
+            duration: options && options.duration ? options.duration : 1600,
+            essential: true
+        });
+    }
+}
+
+function showGlobeIntro(mode) {
+    var intro = document.getElementById('globeIntro');
+    var navPanel = document.getElementById('mobileNavPanel');
+    var navBtn = document.getElementById('mobileNavBtn');
+    var navOverlay = document.getElementById('mobileNavOverlay');
+    var requestedMode = mode || currentMode || 'shenzhen';
+    var requestedGroup = mode ? getGlobeModeGroup(requestedMode) : 'city';
+
+    if (!intro) return;
+
+    if (navPanel) navPanel.classList.remove('active');
+    if (navBtn) navBtn.classList.remove('active');
+    if (navOverlay) navOverlay.classList.remove('active');
+
+    globeIntroState.selectedGroup = requestedGroup;
+    globeIntroState.selectedMode = getGlobeModeGroup(requestedMode) === requestedGroup
+        ? requestedMode
+        : getDefaultGlobeModeForGroup(requestedGroup);
+
+    initGlobeIntro();
+}
+
+function initGlobeIntro() {
+    var intro = document.getElementById('globeIntro');
+    var globeContainer = document.getElementById('globeMap');
+    var cityButtons = document.querySelectorAll('.globe-city-btn');
+    var groupTabs = document.querySelectorAll('.globe-entry-tab');
+    var startBtn = document.getElementById('globeStartBtn');
+    var skipBtn = document.getElementById('globeSkipBtn');
+    var accessToken = getGlobeAccessToken();
+
+    if (!intro) return;
+
+    intro.classList.add('active');
+    disposeGlobeIntroScene();
+    updateGlobeGroupUI();
+
+    groupTabs.forEach(function(tab) {
+        if (tab.getAttribute('data-globe-bound') === '1') return;
+        tab.setAttribute('data-globe-bound', '1');
+        tab.addEventListener('click', function() {
+            setGlobeEntryGroup(tab.getAttribute('data-group') || 'city', { fly: false });
+        });
+    });
+
+    cityButtons.forEach(function(btn) {
+        if (btn.getAttribute('data-globe-bound') === '1') return;
+        btn.setAttribute('data-globe-bound', '1');
+        btn.addEventListener('click', function() {
+            var mode = btn.getAttribute('data-mode') || 'shenzhen';
+            selectGlobeMode(mode);
+        });
+    });
+
+    if (startBtn && startBtn.getAttribute('data-globe-bound') !== '1') {
+        startBtn.setAttribute('data-globe-bound', '1');
+        startBtn.addEventListener('click', function() {
+            enterModeFromGlobe(startBtn.getAttribute('data-mode') || globeIntroState.selectedMode || 'shenzhen');
+        });
+    }
+
+    if (skipBtn && skipBtn.getAttribute('data-globe-bound') !== '1') {
+        skipBtn.setAttribute('data-globe-bound', '1');
+        skipBtn.addEventListener('click', function() {
+            enterModeFromGlobe('shenzhen');
+        });
+    }
+
+    if (typeof mapboxgl === 'undefined' || !globeContainer) {
+        setGlobeTokenHint('Mapbox GL JS 未加载，无法显示地球入口。');
+        setGlobeEntryGroup(globeIntroState.selectedGroup || 'city', { fly: false });
+        return;
+    }
+
+    if (!accessToken) {
+        setGlobeTokenHint('未检测到 Mapbox Token，请在 mapbox-config.js 中填写后重试。');
+        setGlobeEntryGroup(globeIntroState.selectedGroup || 'city', { fly: false });
+        return;
+    }
+
+    setGlobeTokenHint('');
+    mapboxgl.accessToken = accessToken;
+
+    var globeMap = new mapboxgl.Map({
+        container: globeContainer,
+        style: 'mapbox://styles/mapbox/dark-v11',
+        center: [107, 28],
+        zoom: 1.45,
+        projection: 'globe',
+        antialias: true
+    });
+
+    globeMap.addControl(new mapboxgl.NavigationControl({
+        visualizePitch: true
+    }), 'top-left');
+
+    globeMap.on('style.load', function() {
+        globeMap.setFog({
+            color: 'rgb(186, 210, 235)',
+            'high-color': 'rgb(36, 92, 223)',
+            'space-color': 'rgb(11, 11, 25)',
+            'star-intensity': 0.6
+        });
+    });
+
+    globeMap.on('load', function() {
+        setGlobeEntryGroup(globeIntroState.selectedGroup || 'city', { fly: false });
+    });
+
+    globeMap.on('error', function() {
+        setGlobeTokenHint('Mapbox 地球加载失败，请检查 Token 或网络配置。');
+    });
+
+    function onResize() {
+        if (!globeIntroState.map) return;
+        globeIntroState.map.resize();
+    }
+    window.addEventListener('resize', onResize);
+
+    globeIntroState.map = globeMap;
+    globeIntroState.resizeHandler = onResize;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // 初始化当前数据
     currentData = spotData;
-    
+
+    updateModeUI();
+
     initMap();
+    setTimeout(refreshMapLayout, 0);
+    setTimeout(refreshMapLayout, 120);
+
+    initLensExploreChrome();
     
     // 初始化视图控制按钮状态（默认显示重置视图按钮）
     var viewControlBtn = document.getElementById('viewControlBtn');
@@ -2374,6 +4783,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化机位列表和状态计数
     updateSpotList();
     updateStatusCounts();
+
+    var routePlannerModal = document.getElementById('routePlannerModal');
+    if (routePlannerModal) {
+        routePlannerModal.addEventListener('click', function(e) {
+            if (e.target === routePlannerModal) {
+                closeRoutePlanner();
+            }
+        });
+    }
+
+    var confirmModal = document.getElementById('confirmModal');
+    if (confirmModal) {
+        confirmModal.addEventListener('click', function(e) {
+            if (e.target === confirmModal) {
+                cancelConfirmModal();
+            }
+        });
+    }
     
     // 初始化缩放级别显示
     updateZoomLevel();
@@ -2383,30 +4810,50 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 初始化筛选数量显示
     updateFilteredCount();
+
+    // 从首页带过来的搜索关键词 ?q=
+    try {
+        var urlParams = new URLSearchParams(window.location.search);
+        var homeQ = urlParams.get('q');
+        if (homeQ) {
+            var si = document.getElementById('searchInput');
+            if (si) {
+                si.value = homeQ;
+                searchSpots();
+            }
+        }
+    } catch (err) {}
     
     // 调试：检查初始图层状态
     setTimeout(function() {
         debugLayers();
     }, 1000);
+
+    // 启动 3D 地球城市入口
+    initGlobeIntro();
     
     // 绑定搜索事件
-    document.getElementById('searchInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            searchSpots();
-        }
-    });
-    
-    // 绑定搜索输入框实时更新事件
-    document.getElementById('searchInput').addEventListener('input', function() {
-        updateFilteredCount(); // 实时更新筛选数量
-    });
+    var searchInputEl = document.getElementById('searchInput');
+    if (searchInputEl) {
+        searchInputEl.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchSpots();
+            }
+        });
+        searchInputEl.addEventListener('input', function() {
+            updateFilteredCount();
+        });
+    }
 
     // 绑定筛选器变化事件
     ['shootingTypeFilter', 'focalLengthFilter', 'environmentFilter', 'weatherFilter', 'distanceFilter', 'priceFilter'].forEach(function(id) {
-        document.getElementById(id).addEventListener('change', function() {
-            searchSpots();
-            updateFilteredCount(); // 实时更新筛选数量
-        });
+        var el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', function() {
+                searchSpots();
+                updateFilteredCount();
+            });
+        }
     });
 
     // 绑定模态窗口背景点击关闭事件
@@ -2423,16 +4870,37 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // 绑定场景模态窗口背景点击关闭事件
+    document.getElementById('sceneModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeSceneModal();
+        }
+    });
+
     // 绑定键盘ESC键关闭图片模态窗口
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
+            if (document.getElementById('sceneModal').style.display === 'flex') {
+                closeSceneModal();
+            }
             if (document.getElementById('imageModal').style.display === 'flex') {
                 closeImageModal();
             }
             if (document.getElementById('spotModal').style.display === 'flex') {
                 closeSpotModal();
             }
+            if (document.getElementById('routePlannerModal').style.display === 'flex') {
+                closeRoutePlanner();
+            }
+            if (document.getElementById('confirmModal').style.display === 'flex') {
+                cancelConfirmModal();
+            }
         }
+    });
+
+    window.addEventListener('resize', function() {
+        handleSceneResize();
+        refreshMapLayout();
     });
 });
 
