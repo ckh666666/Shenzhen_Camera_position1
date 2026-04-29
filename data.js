@@ -63,6 +63,20 @@ function convertGCJ02ToWGS84(gcjLat, gcjLng) {
 }
 
 // 直接使用WGS84坐标（已经是WGS84格式）
+function bd09togcj02(bdLat, bdLng) {
+    var xPi = Math.PI * 3000.0 / 180.0;
+    var x = bdLng - 0.0065;
+    var y = bdLat - 0.006;
+    var z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * xPi);
+    var theta = Math.atan2(y, x) - 0.000003 * Math.cos(x * xPi);
+    return { lat: z * Math.sin(theta), lng: z * Math.cos(theta) };
+}
+
+function convertBD09ToWGS84(bdLat, bdLng) {
+    var gcj02 = bd09togcj02(bdLat, bdLng);
+    return convertGCJ02ToWGS84(gcj02.lat, gcj02.lng);
+}
+
 function useWGS84Coordinates(lat, lng) {
     return [lng, lat]; // 返回[lng, lat]格式
 }
@@ -229,6 +243,7 @@ var spotData = [
         bestTime: '写字楼开放即可拍摄',
         address: '深圳市南山区侨香路4060号(侨城北地铁站D口）',
         imagePath: '../机位采集数据/花样年香年广场A座_0.png',
+        sceneModelPath: '机位采集数据/花样年香年广场A座_0.ply',
         shootingType: '建筑',
         environmentType: '室内',
         focalLength: '广角镜头',
@@ -1241,11 +1256,587 @@ var suzhouConfig = {
 // 武汉机位导航配置
 var wuhanConfig = {
     name: '武汉机位导航',
-    center: [114.3617, 30.5280], // 武汉大学坐标（WGS84）
+    center: convertBD09ToWGS84(30.57, 114.30), // 武汉核心机位区（百度坐标 -> WGS84）
     zoom: 14
 };
 
+function createWuhanSpotEntry(options) {
+    return Object.assign({
+        type: 'photo',
+        status: 'available',
+        price: '免费',
+        facilities: ['步行可达', '城市拍摄', '注意安全'],
+        restrictions: ['请勿扰民', '请勿阻碍通行'],
+        rating: 4.6,
+        environment: 'outdoor',
+        weather: ['sunny', 'cloudy'],
+        bestTime: '日出后-夜景前',
+        shootingType: '城市风光',
+        environmentType: '室外',
+        focalLength: '广角/中焦',
+        tripodRequired: '视情况',
+        nearbyMetro: '',
+        shootingTips: '建议轻装前往，优先确认现场通行与安全条件。'
+    }, options || {});
+}
+
+var wuhanSpotData = [
+    createWuhanSpotEntry({
+        id: 'wuhan_001',
+        name: '保成路夜市街',
+        coordinates: convertBD09ToWGS84(30.59, 114.30),
+        description: '循礼门地铁口附近的经典夜市机位，适合拍市井夜景与人流氛围。',
+        address: '武汉市江汉区循礼门地铁站 H 口附近',
+        imagePath: '机位采集数据/保成路夜市街.png',
+        environment: 'indoor',
+        weather: ['sunny', 'cloudy', 'rainy'],
+        bestTime: '18:30-22:30',
+        shootingType: '街头夜景',
+        environmentType: '地铁出入口/半室内',
+        nearbyMetro: '循礼门地铁站 H 口',
+        shootingTips: '进站后往 1 号线方向走，上楼梯即可看到，拍摄时不要阻碍其他乘客通行。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_002',
+        name: '龙王庙公园',
+        coordinates: convertBD09ToWGS84(30.57, 114.30),
+        description: '适合拍武汉江景、城市天际线和人生照片的公共机位。',
+        address: '武汉市汉阳区龙王庙公园',
+        imagePath: '机位采集数据/龙王庙公园.png',
+        bestTime: '清晨-日落前',
+        shootingType: '风光/人像',
+        focalLength: '9-16mm',
+        shootingTips: '推荐焦段 9-16 之间，可以尝试不同构图。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_003',
+        name: '黄鹤楼古今同框',
+        type: 'drone',
+        status: 'maintenance',
+        coordinates: convertBD09ToWGS84(30.55, 114.31),
+        description: '经典的黄鹤楼古今同框机位，原机位位于彭刘杨地铁站附近居民楼片区。',
+        address: '武汉市武昌区彭刘杨地铁站附近居民楼',
+        imagePath: '机位采集数据/黄鹤楼古今同框.png',
+        facilities: ['高位视角', '黄鹤楼机位', '适合无人机'],
+        restrictions: ['目前机位已封', '请勿强行进入居民楼'],
+        rating: 4.9,
+        environment: 'mixed',
+        bestTime: '晴天傍晚',
+        shootingType: '古建/城市风光',
+        environmentType: '居民楼高层',
+        focalLength: '中焦/长焦',
+        tripodRequired: '否',
+        nearbyMetro: '彭刘杨地铁站',
+        shootingTips: '那一片高楼不多，视角也很明显，目前更适合作为无人机或历史机位参考。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_004',
+        name: '黄鹤楼青龙巷机位',
+        coordinates: convertBD09ToWGS84(30.55, 114.31),
+        description: '黄鹤楼与楼下街巷同框的经典视角，位于青龙巷附近老小区。',
+        address: '武汉市武昌区青龙巷附近老小区',
+        imagePath: '机位采集数据/黄鹤楼青龙巷机位.png',
+        facilities: ['高位视角', '古建街巷同框'],
+        restrictions: ['无电梯需要爬楼', '请勿扰民'],
+        rating: 4.8,
+        shootingType: '古建/城市风光',
+        environmentType: '居民楼屋顶',
+        focalLength: '中焦',
+        nearbyMetro: '青龙巷步行范围',
+        shootingTips: '需要爬楼登顶，拍摄结束请尽快离开，不要影响居民生活。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_005',
+        name: '沙湖公园渔乐园',
+        coordinates: convertBD09ToWGS84(30.58, 114.35),
+        description: '适合拍城市天际线和人像的湖景机位，荷花季尤其出彩。',
+        address: '武汉市武昌区沙湖公园渔乐园',
+        imagePath: '机位采集数据/沙湖公园渔乐园.png',
+        facilities: ['公园机位', '荷塘前景', '城市天际线'],
+        bestTime: '6月清晨',
+        shootingType: '风光/人像',
+        shootingTips: '推荐 6 月早上去，把荷花做前景会更极致。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_006',
+        name: '钥匙孔大厦',
+        coordinates: convertBD09ToWGS84(30.63, 114.38),
+        description: '青山区建二片区很有梦核气质的大楼机位，适合拍压缩感建筑。',
+        address: '武汉市青山区建二大厦 9 楼附近',
+        imagePath: '机位采集数据/钥匙孔大厦.png',
+        facilities: ['电梯可达', '高层视角', '建筑摄影'],
+        restrictions: ['请勿扰民', '注意高空抛物风险'],
+        rating: 4.8,
+        environment: 'mixed',
+        weather: ['sunny', 'cloudy', 'rainy'],
+        bestTime: '阴天-夜景前',
+        shootingType: '建筑摄影',
+        environmentType: '高层窗口/楼道',
+        focalLength: '中焦/长焦',
+        nearbyMetro: '建二片区',
+        shootingTips: '电梯到 9 楼后注意轻声通行，据说附近有人高空抛物，务必注意安全。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_007',
+        name: '杨泗港大桥汉阳侧江滩公园',
+        coordinates: convertBD09ToWGS84(30.50, 114.25),
+        description: '杨泗港大桥汉阳侧桥下的经典江滩机位。',
+        address: '武汉市汉阳区杨泗港大桥汉阳侧江滩公园',
+        imagePath: '机位采集数据/杨泗港大桥汉阳侧江滩公园.png',
+        facilities: ['桥梁机位', '江滩步道', '阴雨氛围'],
+        rating: 4.9,
+        weather: ['cloudy', 'rainy'],
+        bestTime: '阴雨天或傍晚',
+        shootingType: '桥梁/人像',
+        nearbyMetro: '汉阳江滩方向步行进入',
+        shootingTips: '现在通常只能走到桥下楼梯那里拍，阴雨天气更出片。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_008',
+        name: '杨泗港大桥武昌侧桥下',
+        coordinates: convertBD09ToWGS84(30.51, 114.28),
+        description: '杨泗港大桥武昌侧桥下机位，适合利用枯水期前景创作。',
+        address: '武汉市武昌区杨泗港大桥武昌侧桥下',
+        imagePath: '机位采集数据/杨泗港大桥武昌侧桥.png',
+        facilities: ['桥梁机位', '枯水期前景', '创作空间大'],
+        rating: 4.8,
+        bestTime: '枯水期全天',
+        shootingType: '桥梁/风光',
+        focalLength: '广角',
+        nearbyMetro: '武昌江滩方向步行进入',
+        shootingTips: '枯水期前景会很丰富，小船、枯木、滩涂都值得利用。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_009',
+        name: '得胜桥36号',
+        coordinates: convertBD09ToWGS84(30.56, 114.31),
+        description: '得胜桥老城街巷回望机位，适合记录街区纵深感。',
+        address: '武汉市武昌区得胜桥 36 号附近',
+        imagePath: '机位采集数据/得胜桥36号.png',
+        bestTime: '白天-傍晚',
+        shootingType: '街巷纪实',
+        environmentType: '街巷',
+        nearbyMetro: '司门口/彭刘杨片区步行可达',
+        shootingTips: '到达点位后转身回头即可见景，适合边走边拍。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_010',
+        name: '汉口江滩藤蔓长廊',
+        coordinates: convertBD09ToWGS84(30.61, 114.32),
+        description: '汉口江滩藤蔓长廊机位，适合拍通道透视与氛围感人像。',
+        address: '武汉市江岸区汉口江滩藤蔓长廊',
+        imagePath: '机位采集数据/汉口江滩藤蔓长廊.png',
+        facilities: ['江滩步道', '长廊结构', '适合人像'],
+        bestTime: '清晨-傍晚',
+        shootingType: '风光/人像',
+        nearbyMetro: '地铁 1 号线转 8 号线后步行',
+        shootingTips: '适合利用廊道透视和藤蔓包裹感组织画面。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_011',
+        name: '大智路空中小镇',
+        coordinates: convertBD09ToWGS84(30.60, 114.30),
+        description: '大智路空中小镇高差机位，适合拍层叠街景和建筑切片。',
+        address: '武汉市江岸区大智路地铁站 A 口步行约 5 分钟',
+        imagePath: '机位采集数据/大智路空中小镇.png',
+        facilities: ['步行可达', '立体街景', '城市氛围'],
+        bestTime: '傍晚-夜景',
+        shootingType: '城市风光',
+        nearbyMetro: '大智路地铁站 A 口',
+        shootingTips: '大智路地铁 A 口出来步行 5 分钟左右即可到达。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_012',
+        name: '永丰社区',
+        coordinates: convertBD09ToWGS84(30.59, 114.29),
+        description: '从老社区夹缝里拍武汉恒隆广场的城市反差机位。',
+        address: '武汉市硚口区永丰社区附近',
+        imagePath: '机位采集数据/永丰社区.png',
+        facilities: ['社区街景', '新旧对照视角'],
+        restrictions: ['请勿扰民', '注意居民出入'],
+        bestTime: '傍晚前后',
+        shootingType: '城市风光',
+        focalLength: '中焦',
+        shootingTips: '适合强调老社区与 Heartland 66 之间的空间挤压感。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_013',
+        name: '五彩正巷',
+        coordinates: convertBD09ToWGS84(30.57, 114.28),
+        description: '巷子尽头望向龟山电视塔的赛博夜景机位。',
+        address: '武汉市汉阳区五彩正巷',
+        imagePath: '机位采集数据/五彩正巷.png',
+        facilities: ['巷道透视', '电视塔前景', '夜景氛围'],
+        rating: 4.7,
+        bestTime: '亮灯后',
+        shootingType: '夜景/街巷',
+        nearbyMetro: '龟山片区步行可达',
+        shootingTips: '建议等龟山电视塔亮灯后再拍，赛博氛围会更强。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_014',
+        name: '绿野仙踪铁轨',
+        coordinates: convertBD09ToWGS84(30.55, 114.32),
+        description: '过街天桥上方的铁轨元素机位，辨识度很高。',
+        address: '武汉市武昌区地铁站附近停车场右侧楼梯上方',
+        imagePath: '机位采集数据/绿野仙踪铁轨.png',
+        facilities: ['步行可达', '铁轨元素', '辨识度强'],
+        bestTime: '白天-傍晚',
+        shootingType: '建筑摄影',
+        focalLength: '广角',
+        nearbyMetro: '出站后步行即可',
+        shootingTips: '走到停车场后马上往右走，看见楼梯上去就是，出站抬头也能看到过街天桥上的铁轨。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_015',
+        name: '阅马场住宅高楼屋顶',
+        coordinates: convertBD09ToWGS84(30.55, 114.31),
+        description: '阅马场片区住宅高楼屋顶的黄鹤楼视角机位。',
+        address: '武汉市武昌区阅马场片区住宅高楼',
+        imagePath: '机位采集数据/阅马场黄鹤楼机位.png',
+        facilities: ['高位视角', '黄鹤楼机位'],
+        restrictions: ['请勿扰民', '注意楼顶安全'],
+        rating: 4.7,
+        environment: 'mixed',
+        shootingType: '古建/城市风光',
+        environmentType: '高楼屋顶',
+        focalLength: '中焦/长焦',
+        nearbyMetro: '阅马场片区步行可达',
+        shootingTips: '建议先确认楼宇是否可进入，拍摄时控制停留时间。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_016',
+        name: '中山公园-武汉恒隆广场',
+        coordinates: convertBD09ToWGS84(30.59, 114.28),
+        description: '中山公园片区拍武汉恒隆广场的城市机位。',
+        address: '武汉市江汉区中山公园附近',
+        imagePath: '机位采集数据/中山公园-武汉恒隆广场.png',
+        facilities: ['公园机位', '城市天际线'],
+        bestTime: '傍晚-蓝调时刻',
+        shootingType: '城市风光',
+        focalLength: '中焦',
+        shootingTips: '适合把公园前景和恒隆广场一起纳入画面。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_017',
+        name: '中山公园-武汉民生银行大厦',
+        coordinates: convertBD09ToWGS84(30.59, 114.28),
+        description: '中山公园区域拍民生银行大厦的城市机位。',
+        address: '武汉市江汉区中山公园附近',
+        imagePath: '机位采集数据/中山公园-武汉民生银行大厦.png',
+        facilities: ['公园机位', '商务楼视角'],
+        bestTime: '白天-蓝调时刻',
+        shootingType: '城市风光',
+        focalLength: '中焦',
+        shootingTips: '可以和恒隆广场机位一起踩点，一次完成两组素材。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_018',
+        name: '螃蟹岬C口机位',
+        coordinates: convertBD09ToWGS84(30.56, 114.32),
+        description: '螃蟹岬 C 口附近的高楼机位，适合拍医院周边的城市纵深感。',
+        address: '武汉市武昌区螃蟹岬地铁站 C 口附近高楼',
+        imagePath: '机位采集数据/螃蟹岬C口机位.png',
+        facilities: ['高层视角', '地铁口步行可达'],
+        restrictions: ['请勿扰民', '请先确认楼宇可进入'],
+        rating: 4.5,
+        environment: 'mixed',
+        weather: ['sunny', 'cloudy', 'rainy'],
+        bestTime: '白天-夜景',
+        shootingType: '城市风光',
+        environmentType: '高楼',
+        focalLength: '中焦/长焦',
+        nearbyMetro: '螃蟹岬地铁站 C 口',
+        shootingTips: '目前只确认在医院附近高楼范围内，建议到现场后结合视角逐栋排查。'
+    })
+];
+
 // 武汉极地海洋公园导览配置
+var wuhanConfig = {
+    name: '武汉机位导航',
+    center: useWGS84Coordinates(30.57, 114.30),
+    zoom: 14
+};
+
+var wuhanSpotData = [
+    createWuhanSpotEntry({
+        id: 'wuhan_001',
+        name: '保成路夜市',
+        coordinates: useWGS84Coordinates(30.58601400, 114.28443503),
+        description: '循礼门地铁 H 口附近的夜市街头机位，站在地铁进站往 1 号线方向的楼梯口附近就能看到视角。',
+        address: '武汉市江岸区大智街道保成路与江汉二路交叉口西北 50 米',
+        imagePath: '机位采集数据/保成路夜市街.png',
+        environment: 'indoor',
+        weather: ['sunny', 'cloudy', 'rainy'],
+        bestTime: '18:30-22:30',
+        shootingType: '城市街景',
+        environmentType: '地铁口/街头',
+        nearbyMetro: '循礼门地铁站 H 口',
+        shootingTips: '拍摄时注意不要阻碍乘客通行。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_002',
+        name: '龙王庙',
+        coordinates: useWGS84Coordinates(30.56956273, 114.28589334),
+        description: '适合风光和人生照片的江景机位，构图空间比较大。',
+        address: '武汉市江汉区大兴路 78 号附近',
+        imagePath: '机位采集数据/龙王庙公园.png',
+        bestTime: '清晨-傍晚',
+        shootingType: '风光/人像',
+        focalLength: '9-16mm',
+        shootingTips: '推荐 9-16mm 广角焦段，也可以尝试不同前景构图。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_003',
+        name: '彭刘杨黄鹤楼古今同框',
+        type: 'drone',
+        status: 'maintenance',
+        coordinates: useWGS84Coordinates(30.54353708, 114.29593055),
+        description: '经典的黄鹤楼古今同框机位，现阶段地面机位已封，适合作为无人机点位记录。',
+        address: '武汉市武昌区彭刘杨地铁站附近居民楼区域',
+        imagePath: '机位采集数据/黄鹤楼古今同框.png',
+        facilities: ['高层视角', '黄鹤楼同框'],
+        restrictions: ['当前机位已封', '注意居民区礼貌与安全'],
+        rating: 4.9,
+        environment: 'mixed',
+        bestTime: '日落前后',
+        shootingType: '无人机/城市风光',
+        environmentType: '居民区高层',
+        focalLength: '中长焦/无人机',
+        nearbyMetro: '彭刘杨地铁站',
+        shootingTips: '那一片高楼不多，视角特征明显，但请注意不要打扰居民。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_004',
+        name: '青龙巷机位',
+        coordinates: useWGS84Coordinates(30.54986670, 114.29574770),
+        description: '黄鹤楼与楼下街巷同框的老小区楼顶机位，氛围感很强。',
+        address: '武汉市武昌区青龙巷附近老小区',
+        imagePath: '机位采集数据/黄鹤楼青龙巷机位.png',
+        facilities: ['老街巷视角', '黄鹤楼同框'],
+        restrictions: ['无电梯', '注意不要扰民'],
+        rating: 4.8,
+        shootingType: '城市风光/人文',
+        environmentType: '老小区楼顶',
+        focalLength: '中长焦',
+        nearbyMetro: '彭刘杨地铁站附近',
+        shootingTips: '需要爬楼梯登顶，注意控制拍摄音量。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_005',
+        name: '沙湖公园A区-鱼乐园',
+        coordinates: useWGS84Coordinates(30.57540129, 114.33894789),
+        description: '适合拍城市天际线和人生照片的湖景机位。',
+        address: '武汉市武昌区沙湖公园琴园（沙湖路南）',
+        imagePath: '机位采集数据/沙湖公园渔乐园.png',
+        facilities: ['公园机位', '城市天际线', '荷塘前景'],
+        bestTime: '6月早晨',
+        shootingType: '风光/人像',
+        shootingTips: '6 月早上更适合把荷花当前景。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_006',
+        name: '钥匙孔大厦',
+        coordinates: useWGS84Coordinates(30.62729993, 114.36987928),
+        description: '青山区建二大厦的梦核楼体机位，视角很有辨识度。',
+        address: '武汉市青山区建二大厦 9 楼',
+        imagePath: '机位采集数据/钥匙孔大厦.png',
+        facilities: ['电梯可达', '高层视角', '建筑摄影'],
+        restrictions: ['注意不要扰民', '留意高空抛物风险'],
+        rating: 4.8,
+        environment: 'mixed',
+        weather: ['sunny', 'cloudy', 'rainy'],
+        bestTime: '白天-蓝调时刻',
+        shootingType: '建筑摄影',
+        environmentType: '高层室内/楼道',
+        focalLength: '中长焦/广角',
+        nearbyMetro: '建二片区',
+        shootingTips: '电梯到 9 楼后注意周边环境安全，避免在危险边缘停留。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_007',
+        name: '杨泗港大桥汉阳侧江滩公园',
+        coordinates: useWGS84Coordinates(30.51497393, 114.24964852),
+        description: '目前主要走到桥下楼梯附近拍摄，适合人生照片和桥体视角。',
+        address: '武汉市汉阳侧杨泗港大桥江滩公园桥下楼梯附近',
+        imagePath: '机位采集数据/杨泗港大桥汉阳侧江滩公园.png',
+        facilities: ['桥下机位', '江滩公园', '停车便利'],
+        rating: 4.9,
+        weather: ['cloudy', 'rainy'],
+        bestTime: '阴天-雨天',
+        shootingType: '桥梁/人像',
+        nearbyMetro: '汉阳侧江滩区域',
+        shootingTips: '阴雨天更容易出片，当前更推荐在桥下楼梯位置取景。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_008',
+        name: '杨泗港大桥武昌侧桥下',
+        coordinates: useWGS84Coordinates(30.50321451, 114.26504148),
+        description: '武昌侧桥下的枯水期机位，前景变化丰富。',
+        address: '武汉市武昌区杨泗港大桥武昌侧桥下',
+        imagePath: '机位采集数据/杨泗港大桥武昌侧桥.png',
+        facilities: ['桥下机位', '滩涂前景', '江景'],
+        rating: 4.8,
+        bestTime: '枯水期',
+        shootingType: '桥梁/风光',
+        focalLength: '广角',
+        nearbyMetro: '武昌侧江滩区域',
+        shootingTips: '枯水期更容易遇到废弃小船、枯木等前景。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_009',
+        name: '得胜桥36号',
+        coordinates: useWGS84Coordinates(30.55188123, 114.29788345),
+        description: '老街巷里的回望机位，转身就能看到画面。',
+        address: '武汉市武昌区得胜桥 36 号附近',
+        imagePath: '机位采集数据/得胜桥36号.png',
+        bestTime: '白天-傍晚',
+        shootingType: '街巷人文',
+        environmentType: '老街区',
+        shootingTips: '到点位后转身回头即可看到主要取景方向。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_010',
+        name: '江岸区江滩公园',
+        coordinates: useWGS84Coordinates(30.60982642, 114.31102640),
+        description: '沿江大道一带的江滩公园机位，可结合藤蔓长廊和江景取景。',
+        address: '武汉市江岸区沿江大道',
+        imagePath: '机位采集数据/汉口江滩藤蔓长廊.png',
+        facilities: ['江滩公园', '长廊前景', '江景'],
+        bestTime: '白天-傍晚',
+        shootingType: '风光/城市街景',
+        shootingTips: '可以把长廊、藤蔓和江边空间结合起来构图。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_011',
+        name: '大智无界空中小镇',
+        coordinates: useWGS84Coordinates(30.59224827, 114.28992283),
+        description: '大智路附近的高层机位，适合拍城市层次和生活感画面。',
+        address: '武汉市江岸区大智路 50 号',
+        imagePath: '机位采集数据/大智路空中小镇.png',
+        facilities: ['电梯可达', '城市高层', '近地铁'],
+        bestTime: '白天-夜景',
+        shootingType: '城市风光',
+        nearbyMetro: '大智路地铁站 A 出口',
+        shootingTips: '从 A 口步行约 5 分钟可达。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_012',
+        name: '永丰社区',
+        coordinates: useWGS84Coordinates(30.58189008, 114.27405959),
+        description: '从老社区夹缝里拍 Heartland 66 的对比感机位。',
+        address: '武汉市硚口区永丰社区附近',
+        imagePath: '机位采集数据/永丰社区.png',
+        facilities: ['社区视角', '高楼同框'],
+        restrictions: ['居民区拍摄注意礼貌'],
+        bestTime: '傍晚到入夜',
+        shootingType: '城市风光',
+        focalLength: '中长焦',
+        shootingTips: '适合强调新旧城市肌理的反差。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_013',
+        name: '五彩正巷',
+        coordinates: useWGS84Coordinates(30.56626060, 114.27098597),
+        description: '巷子尽头对着龟山电视塔的赛博感机位。',
+        address: '武汉市汉阳区五彩正巷',
+        imagePath: '机位采集数据/五彩正巷.png',
+        facilities: ['巷道前景', '电视塔同框'],
+        rating: 4.7,
+        bestTime: '亮灯后',
+        shootingType: '夜景/街巷',
+        nearbyMetro: '汉阳侧地铁站步行可达',
+        shootingTips: '建议等龟山电视塔亮灯后再拍，氛围更强。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_014',
+        name: '绿野仙踪铁轨',
+        coordinates: useWGS84Coordinates(30.54477082, 114.31289848),
+        description: '蛇山北坡院内停车场附近的铁轨机位，辨识度很高。',
+        address: '武汉市武昌区中山路 317 号，蛇山北坡院内地上停车场',
+        imagePath: '机位采集数据/绿野仙踪铁轨.png',
+        facilities: ['铁轨前景', '天桥元素', '步行可达'],
+        bestTime: '白天-傍晚',
+        shootingType: '城市风光',
+        focalLength: '广角',
+        nearbyMetro: '附近地铁出站后步行',
+        shootingTips: '出站走到停车场后马上右转，上楼梯就能到位。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_015',
+        name: '阅马场住宅高楼屋顶',
+        coordinates: useWGS84Coordinates(30.54242382, 114.30154922),
+        description: '景观楼大厦附近的高层屋顶机位，适合拍黄鹤楼片区城市层次。',
+        address: '武汉市武昌区景观楼大厦附近',
+        imagePath: '机位采集数据/阅马场黄鹤楼机位.png',
+        facilities: ['高层屋顶', '城市全景'],
+        restrictions: ['注意楼顶安全', '避免打扰住户'],
+        rating: 4.7,
+        environment: 'mixed',
+        shootingType: '城市风光/建筑',
+        environmentType: '住宅高层',
+        focalLength: '中长焦/广角',
+        nearbyMetro: '阅马场片区',
+        shootingTips: '优先选择天气通透的时段，层次感更强。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_016',
+        name: '武汉恒隆广场',
+        coordinates: useWGS84Coordinates(30.58740860, 114.26568669),
+        description: '中山公园附近拍摄武汉恒隆广场的城市机位。',
+        address: '武汉市江汉区中山公园附近',
+        imagePath: '机位采集数据/武汉恒隆广场.png',
+        facilities: ['公园视角', '商业建筑'],
+        bestTime: '白天-夜景',
+        shootingType: '城市建筑',
+        focalLength: '中长焦'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_017',
+        name: '武汉民生银行大厦',
+        coordinates: useWGS84Coordinates(30.59067344, 114.26558442),
+        description: '中山公园附近拍民生银行大厦的城市机位。',
+        address: '武汉市江汉区中山公园附近',
+        imagePath: '机位采集数据/武汉民生银行大厦.png',
+        facilities: ['公园视角', '高楼同框'],
+        bestTime: '白天-夜景',
+        shootingType: '城市建筑',
+        focalLength: '中长焦'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_018',
+        name: '螃蟹岬C口机位',
+        coordinates: useWGS84Coordinates(30.55725791, 114.31265705),
+        description: '螃蟹岬 C 口附近高楼机位，适合拍摄城市纵深。',
+        address: '武汉市武昌区螃蟹岬地铁站 C 口附近医院周边高楼',
+        imagePath: '机位采集数据/螃蟹岬C口机位.png',
+        facilities: ['高层机位', '近地铁'],
+        restrictions: ['注意楼宇管理要求'],
+        rating: 4.5,
+        environment: 'mixed',
+        weather: ['sunny', 'cloudy', 'rainy'],
+        bestTime: '傍晚-蓝调',
+        shootingType: '城市风光',
+        environmentType: '高层建筑',
+        focalLength: '中长焦/广角',
+        nearbyMetro: '螃蟹岬地铁站 C 口',
+        shootingTips: '可优先寻找医院附近视野开阔的高楼。'
+    }),
+    createWuhanSpotEntry({
+        id: 'wuhan_019',
+        name: '武汉江滩滩涂',
+        coordinates: useWGS84Coordinates(30.63669332, 114.33233851),
+        description: '导航大地花海后步行到二七桥下的滩涂机位，前景很丰富。',
+        address: '武汉市江岸区二七桥下大地花海附近江滩',
+        imagePath: '机位采集数据/武汉江滩滩涂.png',
+        facilities: ['滩涂前景', '桥下机位', '停车便利'],
+        bestTime: '枯水期/阴天',
+        shootingType: '风光/人像',
+        nearbyMetro: '汉口江滩三期西北 4 门附近',
+        shootingTips: '自驾可从汉口江滩三期西北 4 门进入，步行按参考路线前往桥下。'
+    })
+];
+
 var wuhanOceanConfig = {
     name: '武汉极地海洋公园导览',
     center: convertGCJ02ToWGS84(30.663265, 114.278723), // 极地海洋公园（GCJ-02 -> WGS84）
@@ -2520,6 +3111,11 @@ var taipeiSpotData = [
         shootingTips: '可作为串联三重多处街景机位的收尾补给点。'
     }
 ];
+
+// 移除台北 7-11 便利店点位
+taipeiSpotData = taipeiSpotData.filter(function(spot) {
+    return !spot.isSevenEleven;
+});
 
 // 武汉极地海洋公园机位数据
 var wuhanOceanSpotData = [
