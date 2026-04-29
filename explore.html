@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html class="dark" lang="zh-CN">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>LensCurator | Exploration Map</title>
+    <link href="../css/ol.css" rel="stylesheet"/>
+    <link href="style.css" rel="stylesheet"/>
+    <link href="explore-layout.css" rel="stylesheet"/>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container": "#171f33",
+              "on-secondary": "#233144",
+              "background": "#0b1326",
+              "on-primary-container": "#00275f",
+              "on-secondary-container": "#abb9d2",
+              "inverse-primary": "#0059c7",
+              "outline-variant": "#414755",
+              "on-tertiary-fixed-variant": "#653e00",
+              "on-surface-variant": "#c1c6d7",
+              "inverse-on-surface": "#283044",
+              "surface-variant": "#2d3449",
+              "surface-bright": "#31394d",
+              "primary-fixed-dim": "#afc6ff",
+              "secondary-container": "#3c4a5e",
+              "surface-container-low": "#131b2e",
+              "on-primary-fixed": "#001944",
+              "on-secondary-fixed": "#0d1c2f",
+              "primary-container": "#528dff",
+              "on-error-container": "#ffdad6",
+              "surface-container-high": "#222a3d",
+              "tertiary-fixed-dim": "#ffb95f",
+              "on-primary-fixed-variant": "#004299",
+              "surface": "#0b1326",
+              "surface-container-lowest": "#060e20",
+              "secondary-fixed": "#d5e3fd",
+              "tertiary-container": "#ca8100",
+              "primary-fixed": "#d9e2ff",
+              "secondary": "#b9c7e0",
+              "on-tertiary-container": "#3e2400",
+              "inverse-surface": "#dae2fd",
+              "on-background": "#dae2fd",
+              "surface-container-highest": "#2d3449",
+              "tertiary-fixed": "#ffddb8",
+              "on-primary": "#002d6d",
+              "on-error": "#690005",
+              "surface-dim": "#0b1326",
+              "on-tertiary": "#472a00",
+              "primary": "#afc6ff",
+              "error-container": "#93000a",
+              "secondary-fixed-dim": "#b9c7e0",
+              "surface-tint": "#afc6ff",
+              "error": "#ffb4ab",
+              "on-secondary-fixed-variant": "#3a485c",
+              "on-surface": "#dae2fd",
+              "tertiary": "#ffb95f",
+              "outline": "#8b90a0",
+              "on-tertiary-fixed": "#2a1700"
+            },
+            borderRadius: { DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px" },
+            fontFamily: { headline: ["Manrope"], body: ["Inter"], label: ["Inter"] }
+          }
+        }
+      }
+    </script>
+    <style>
+        body.lc-explore { font-family: 'Inter', sans-serif; background-color: #0b1326; color: #dae2fd; }
+        .font-headline { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0b1326; }
+        ::-webkit-scrollbar-thumb { background: #2d3449; border-radius: 10px; }
+    </style>
+    <script src="../libs/ol5/ol.js"></script>
+    <script src="../libs/jquery-1.11.2.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/PLYLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</head>
+<body class="lc-explore flex flex-col h-screen overflow-hidden">
+<!-- 兼容旧版 updateModeUI：隐藏 logo / 搜索标题 -->
+<div class="sr-only" aria-hidden="true">
+    <div class="logo"><h1 id="exploreLogoTitle">深圳机位导航</h1></div>
+    <span class="search-title" id="exploreSearchTitleHook">🔍 机位搜索</span>
+</div>
+
+<nav class="flex flex-wrap justify-between items-center w-full px-4 md:px-8 py-3 md:py-4 sticky top-0 z-50 backdrop-blur-md bg-gradient-to-b from-[#131b2e] to-transparent bg-[#0b1326] border-b border-outline-variant/10 gap-3">
+    <div class="flex items-center gap-6 md:gap-12 min-w-0">
+        <a href="index.html" class="text-xl md:text-2xl font-bold tracking-tighter text-[#afc6ff] font-['Manrope'] tracking-tight leading-none shrink-0">LensCurator</a>
+        <div class="hidden md:flex gap-6 lg:gap-8">
+            <span class="text-[#afc6ff] border-b-2 border-[#afc6ff] pb-1 font-['Manrope'] tracking-tight leading-none text-sm">Explore</span>
+            <a class="text-[#c1c6d7] hover:text-[#dae2fd] transition-colors font-['Manrope'] tracking-tight leading-none text-sm" href="index.html#collections">Collections</a>
+            <a class="text-[#c1c6d7] hover:text-[#dae2fd] transition-colors font-['Manrope'] tracking-tight leading-none text-sm" href="#">Community</a>
+            <a class="text-[#c1c6d7] hover:text-[#dae2fd] transition-colors font-['Manrope'] tracking-tight leading-none text-sm" href="#">Submit</a>
+        </div>
+    </div>
+    <div class="flex items-center gap-3 md:gap-6 flex-1 md:flex-initial justify-end min-w-0">
+        <div class="relative flex-1 max-w-[200px] md:max-w-none md:w-64 lg:block">
+            <input class="bg-surface-container-low text-on-surface text-sm px-3 md:px-4 py-2 rounded-md outline-none focus:ring-1 focus:ring-primary-container w-full transition-all" placeholder="Search locations..." type="text" id="searchInput"/>
+        </div>
+        <button type="button" id="showListBtn" onclick="showPerformanceList()" style="display:none" class="text-xs px-2 py-1 rounded-md bg-surface-container-high text-on-surface border border-outline-variant/30 hover:bg-primary-container/30">表演打卡</button>
+        <div class="hidden sm:flex gap-2 md:gap-4 shrink-0">
+            <button type="button" class="text-[#c1c6d7] hover:bg-[#222a3d]/50 transition-all duration-300 p-2 rounded-full" title="通知"><span class="material-symbols-outlined">notifications</span></button>
+            <button type="button" class="text-[#c1c6d7] hover:bg-[#222a3d]/50 transition-all duration-300 p-2 rounded-full" title="账户"><span class="material-symbols-outlined">account_circle</span></button>
+        </div>
+    </div>
+</nav>
+
+<!-- 模式切换（保留原有 id 供 app.js 使用） -->
+<div class="px-4 md:px-8 py-2 flex gap-2 overflow-x-auto scrollbar-hide border-b border-outline-variant/10 bg-surface-container-low/40">
+    <button type="button" class="mode-btn px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors" onclick="switchMode('shenzhen')" id="shenzhenModeBtn">深圳</button>
+    <button type="button" class="mode-btn px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors" onclick="switchMode('suzhou')" id="suzhouModeBtn">苏州</button>
+    <button type="button" class="mode-btn px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors" onclick="switchMode('wuhan')" id="wuhanModeBtn">武汉</button>
+    <button type="button" class="mode-btn px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors" onclick="switchMode('wuhanOcean')" id="wuhanOceanModeBtn">极地海洋</button>
+    <button type="button" class="mode-btn px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors" onclick="switchMode('taipei')" id="taipeiModeBtn">台北</button>
+    <button type="button" class="mode-btn px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors" onclick="switchMode('disney')" id="disneyModeBtn">迪士尼</button>
+    <button type="button" class="ml-auto px-3 py-1.5 rounded-full text-xs font-medium bg-surface-container-high/80 text-on-surface-variant hover:text-on-surface shrink-0" onclick="showSpotManager()">机位管理</button>
+    <button type="button" class="px-3 py-1.5 rounded-full text-xs font-medium bg-surface-container-high/80 text-on-surface-variant hover:text-on-surface shrink-0" onclick="showRoutePlanner()">路线</button>
+    <button type="button" class="px-3 py-1.5 rounded-full text-xs font-medium bg-surface-container-high/80 text-on-surface-variant hover:text-on-surface shrink-0" onclick="clearAllSpots()">清空标注</button>
+    <button type="button" class="px-3 py-1.5 rounded-full text-xs font-medium bg-surface-container-high/80 text-on-surface-variant hover:text-on-surface shrink-0" onclick="showSettings()">设置</button>
+</div>
+
+<main class="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+    <section id="sidebar" class="sidebar w-full md:w-[25%] flex flex-col bg-surface border-r border-outline-variant/15 z-[1000] min-h-0 max-h-[42vh] md:max-h-none">
+        <div class="p-4 md:p-6 bg-surface-container-low/50 backdrop-blur-sm search-section" id="exploreSearchSection">
+            <div class="flex items-center justify-between mb-3 md:mb-4 gap-2">
+                <h1 class="text-xl md:text-2xl font-headline font-bold text-on-surface tracking-tight truncate">附近机位</h1>
+                <span id="spotResultCount" class="text-label text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant shrink-0">0 Results</span>
+            </div>
+            <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-3">
+                <button type="button" data-lc-chip="all" class="lc-filter-chip px-4 py-1.5 rounded-full bg-primary-container text-on-primary-container text-xs font-semibold whitespace-nowrap">全部</button>
+                <button type="button" data-lc-chip="night" class="lc-filter-chip px-4 py-1.5 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface text-xs font-semibold whitespace-nowrap transition-colors">夜景</button>
+                <button type="button" data-lc-chip="sunset" class="lc-filter-chip px-4 py-1.5 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface text-xs font-semibold whitespace-nowrap transition-colors">黄昏</button>
+                <button type="button" data-lc-chip="drone" class="lc-filter-chip px-4 py-1.5 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface text-xs font-semibold whitespace-nowrap transition-colors">航拍</button>
+                <button type="button" data-lc-chip="arch" class="lc-filter-chip px-4 py-1.5 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface text-xs font-semibold whitespace-nowrap transition-colors">建筑</button>
+            </div>
+            <div class="flex flex-wrap gap-2 items-center">
+                <button type="button" onclick="searchSpots()" class="px-3 py-1.5 rounded-lg bg-primary-container/90 text-on-primary-container text-xs font-semibold">搜索</button>
+                <button type="button" onclick="importFilteredSpots()" class="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface text-xs border border-outline-variant/30">导入至地图 (<span id="exploreFilteredCount">0</span>)</button>
+            </div>
+        </div>
+        <!-- 完整筛选器：保留 id，供 searchSpots / updateFilteredCount 使用，视觉上折叠 -->
+        <details class="px-4 md:px-6 pb-2 border-b border-outline-variant/10">
+            <summary class="text-xs text-on-surface-variant cursor-pointer select-none">高级筛选</summary>
+            <div class="pt-3 grid grid-cols-1 gap-2">
+                <select class="filter-select w-full rounded-md bg-surface-container-low text-on-surface text-xs py-2 border border-outline-variant/20" id="shootingTypeFilter"></select>
+                <select class="filter-select w-full rounded-md bg-surface-container-low text-on-surface text-xs py-2 border border-outline-variant/20" id="focalLengthFilter"></select>
+                <select class="filter-select w-full rounded-md bg-surface-container-low text-on-surface text-xs py-2 border border-outline-variant/20" id="environmentFilter"></select>
+                <select class="filter-select w-full rounded-md bg-surface-container-low text-on-surface text-xs py-2 border border-outline-variant/20" id="weatherFilter"></select>
+                <select class="filter-select w-full rounded-md bg-surface-container-low text-on-surface text-xs py-2 border border-outline-variant/20" id="distanceFilter"></select>
+                <select class="filter-select w-full rounded-md bg-surface-container-low text-on-surface text-xs py-2 border border-outline-variant/20" id="priceFilter"></select>
+            </div>
+        </details>
+        <div class="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-6 min-h-0" id="spotList"></div>
+    </section>
+
+    <section class="flex-1 md:w-[75%] relative bg-surface-container-lowest min-h-[38vh] md:min-h-0 flex flex-col">
+        <div id="map" class="lc-map-root absolute inset-0 z-0"></div>
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            正在加载模型...
+        </div>
+        <div class="absolute bottom-6 right-4 md:bottom-8 md:right-8 flex flex-col gap-2 z-[5]">
+            <button type="button" id="mapZoomIn" class="w-10 h-10 bg-surface-container-high/90 backdrop-blur-md rounded-lg flex items-center justify-center text-on-surface hover:bg-surface-container-highest transition-colors shadow-lg border border-outline-variant/20" title="放大"><span class="material-symbols-outlined">add</span></button>
+            <button type="button" id="mapZoomOut" class="w-10 h-10 bg-surface-container-high/90 backdrop-blur-md rounded-lg flex items-center justify-center text-on-surface hover:bg-surface-container-highest transition-colors shadow-lg border border-outline-variant/20" title="缩小"><span class="material-symbols-outlined">remove</span></button>
+            <div class="h-2"></div>
+            <button type="button" id="mapLocateBtn" class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center text-on-primary-container shadow-lg shadow-primary/20 border border-primary/40" title="定位"><span class="material-symbols-outlined">my_location</span></button>
+        </div>
+        <div class="absolute bottom-6 left-4 md:bottom-8 md:left-8 bg-surface-container-lowest/80 backdrop-blur-md border border-outline-variant/20 px-3 md:px-4 py-2 md:py-3 rounded-xl z-[5] max-w-[calc(100%-2rem)]">
+            <div class="flex items-center gap-3 md:gap-4 flex-wrap">
+                <div class="flex flex-col">
+                    <span class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Latitude</span>
+                    <span class="text-xs font-mono text-on-surface" id="exploreMapLat">—</span>
+                </div>
+                <div class="w-px h-8 bg-outline-variant/30 hidden sm:block"></div>
+                <div class="flex flex-col">
+                    <span class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Longitude</span>
+                    <span class="text-xs font-mono text-on-surface" id="exploreMapLng">—</span>
+                </div>
+                <div class="flex flex-col sm:ml-2">
+                    <span class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Zoom</span>
+                    <span class="text-xs font-mono text-on-surface"><span id="zoomLevel">12</span></span>
+                </div>
+            </div>
+        </div>
+        <!-- 保留旧版地图控制面板 id，供 JS 切换图层 / 表演打卡等 -->
+        <div class="map-controls lc-legacy-map-controls" id="mapControls">
+            <div class="control-group">
+                <div class="control-title">地图类型</div>
+                <button type="button" class="control-btn active" onclick="switchMapType('vector')" id="vectorBtn">线划图</button>
+                <button type="button" class="control-btn" onclick="switchMapType('satellite')" id="satelliteBtn">卫星图</button>
+            </div>
+            <div class="control-group">
+                <div class="control-title">图层控制</div>
+                <button type="button" class="control-btn active" onclick="toggleAnnotation()" id="annotationBtn">注记</button>
+                <button type="button" class="control-btn" onclick="toggleTraffic()" id="trafficBtn">路况</button>
+            </div>
+            <div class="control-group">
+                <div class="control-title">视图控制</div>
+                <button type="button" class="control-btn" id="viewControlBtn" onclick="handleViewControl()">重置视图</button>
+                <button type="button" class="control-btn" id="performanceCheckInBtn" onclick="showPerformanceList()" style="display:none;">表演打卡</button>
+                <button type="button" class="control-btn" onclick="locateMe()">定位我</button>
+                <button type="button" class="control-btn" onclick="fullscreen()">全屏</button>
+            </div>
+            <div class="control-group">
+                <div class="control-title">标注管理</div>
+                <button type="button" class="control-btn" onclick="clearAllSpots()">清除标注</button>
+                <span style="font-size: 10px; color: #666; display: block; margin-top: 5px;">当前标注: <span id="spotCount">0</span> 个</span>
+            </div>
+        </div>
+        <button type="button" class="mobile-controls-btn" onclick="toggleMapControls()" id="mobileControlsBtn"><span class="controls-icon">⚙️</span></button>
+        <div class="status-indicator lc-status-bar">
+            <div class="status-item"><div class="status-dot available"></div><span>可用: <span id="availableCount">0</span></span></div>
+            <div class="status-item"><div class="status-dot occupied"></div><span>占用: <span id="occupiedCount">0</span></span></div>
+            <div class="status-item"><div class="status-dot maintenance"></div><span>维护: <span id="maintenanceCount">0</span></span></div>
+        </div>
+    </section>
+</main>
+
+<!-- 移动端：保留侧栏与地图控制逻辑 -->
+<button type="button" class="mobile-menu-btn" onclick="toggleSidebar()" id="mobileMenuBtn"><span class="hamburger"></span><span class="hamburger"></span><span class="hamburger"></span></button>
+<button type="button" class="mobile-nav-btn" onclick="toggleMobileNav()" id="mobileNavBtn"><span class="nav-icon">☰</span></button>
+<div class="mobile-nav-overlay" id="mobileNavOverlay" onclick="toggleMobileNav()"></div>
+<div class="mobile-nav-panel" id="mobileNavPanel">
+    <div class="mobile-nav-header"><h3>功能菜单</h3><button type="button" class="mobile-nav-close" onclick="toggleMobileNav()">×</button></div>
+    <div class="mobile-nav-content">
+        <div class="mobile-mode-switch" style="display:flex;flex-direction:column;gap:8px;padding:8px 0;">
+            <button type="button" class="mobile-mode-btn active" onclick="switchMode('shenzhen'); toggleMobileNav();" id="mobileSzModeBtn">深圳机位</button>
+            <button type="button" class="mobile-mode-btn" onclick="switchMode('suzhou'); toggleMobileNav();" id="mobileSuzhouModeBtn">苏州机位</button>
+            <button type="button" class="mobile-mode-btn" onclick="switchMode('wuhan'); toggleMobileNav();" id="mobileWuhanModeBtn">武汉机位</button>
+            <button type="button" class="mobile-mode-btn" onclick="switchMode('wuhanOcean'); toggleMobileNav();" id="mobileWuhanOceanModeBtn">极地海洋</button>
+            <button type="button" class="mobile-mode-btn" onclick="switchMode('taipei'); toggleMobileNav();" id="mobileTaipeiModeBtn">台北机位</button>
+            <button type="button" class="mobile-mode-btn" onclick="switchMode('disney'); toggleMobileNav();" id="mobileDisneyModeBtn">迪士尼</button>
+        </div>
+        <button type="button" class="mobile-nav-item" onclick="showSpotManager(); toggleMobileNav();"><span class="nav-item-icon">📋</span><span class="nav-item-text">机位管理</span></button>
+        <button type="button" class="mobile-nav-item" onclick="showRoutePlanner(); toggleMobileNav();"><span class="nav-item-icon">🗺️</span><span class="nav-item-text">路线规划</span></button>
+        <button type="button" class="mobile-nav-item" id="mobileShowListBtn" onclick="showPerformanceList(); toggleMobileNav();" style="display:none;"><span class="nav-item-icon">🎭</span><span class="nav-item-text">表演打卡</span></button>
+        <button type="button" class="mobile-nav-item" onclick="clearAllSpots(); toggleMobileNav();"><span class="nav-item-icon">🗑️</span><span class="nav-item-text">清空标注</span></button>
+        <button type="button" class="mobile-nav-item" onclick="showSettings(); toggleMobileNav();"><span class="nav-item-icon">⚙️</span><span class="nav-item-text">设置</span></button>
+        <a class="mobile-nav-item" href="index.html" style="text-decoration:none;color:inherit;"><span class="nav-item-icon">🏠</span><span class="nav-item-text">返回首页</span></a>
+    </div>
+</div>
+
+<!-- 供 importFilteredSpots 等使用的隐藏计数（与 exploreFilteredCount 同步） -->
+<span id="filteredCount" class="sr-only">0</span>
+
+<nav class="md:hidden flex justify-around items-center w-full bg-surface-container-high py-2 px-2 z-50 border-t border-outline-variant/20 shrink-0">
+    <button type="button" class="flex flex-col items-center gap-0.5 text-primary"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">explore</span><span class="text-[10px] font-bold">Explore</span></button>
+    <button type="button" class="flex flex-col items-center gap-0.5 text-on-surface-variant" onclick="toggleSidebar()"><span class="material-symbols-outlined">view_list</span><span class="text-[10px] font-medium">列表</span></button>
+    <div class="relative -top-4">
+        <button type="button" class="w-12 h-12 bg-primary-container text-on-primary-container rounded-full shadow-2xl flex items-center justify-center" onclick="document.getElementById('mapLocateBtn').click()"><span class="material-symbols-outlined text-2xl">my_location</span></button>
+    </div>
+    <button type="button" class="flex flex-col items-center gap-0.5 text-on-surface-variant" onclick="toggleMobileNav()"><span class="material-symbols-outlined">menu</span><span class="text-[10px] font-medium">菜单</span></button>
+    <a href="index.html" class="flex flex-col items-center gap-0.5 text-on-surface-variant"><span class="material-symbols-outlined">home</span><span class="text-[10px] font-medium">首页</span></a>
+</nav>
+
+<footer class="hidden md:block bg-[#0b1326] border-t border-[#c1c6d7]/15 shrink-0">
+    <div class="max-w-7xl mx-auto px-8 py-6 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="flex flex-col gap-1">
+            <span class="text-lg font-black text-[#afc6ff]">LensCurator</span>
+            <span class="font-['Inter'] text-xs tracking-wide uppercase text-[#c1c6d7]">© 2026 LensCurator. Captured with intention.</span>
+        </div>
+        <div class="flex gap-6 flex-wrap justify-center">
+            <a class="font-['Inter'] text-xs tracking-wide uppercase text-[#c1c6d7] hover:text-[#528dff] transition-colors" href="#">Privacy</a>
+            <a class="font-['Inter'] text-xs tracking-wide uppercase text-[#c1c6d7] hover:text-[#528dff] transition-colors" href="#">Terms</a>
+            <a class="font-['Inter'] text-xs tracking-wide uppercase text-[#c1c6d7] hover:text-[#528dff] transition-colors" href="#">API</a>
+        </div>
+    </div>
+</footer>
+
+<div class="modal-overlay" id="spotModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div>
+                <div class="modal-title" id="modalTitle">机位详情</div>
+                <div class="modal-subtitle" id="modalSubtitle">详细信息</div>
+            </div>
+            <button type="button" class="modal-close" onclick="closeSpotModal()">×</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="imageModal">
+    <div class="image-modal-content">
+        <div class="image-modal-header">
+            <div class="image-modal-title" id="imageModalTitle">机位样片</div>
+            <button type="button" class="modal-close" onclick="closeImageModal()">×</button>
+        </div>
+        <div class="image-modal-body">
+            <img id="fullImage" src="" alt="机位样片" class="full-image"/>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay scene-modal-overlay" id="sceneModal">
+    <div class="scene-modal-content">
+        <div class="scene-modal-header">
+            <div class="scene-modal-title" id="sceneModalTitle">场景体验</div>
+            <button type="button" class="modal-close" onclick="closeSceneModal()">×</button>
+        </div>
+        <div class="scene-modal-body" id="sceneCanvasContainer">
+            <div class="scene-loading" id="sceneLoading">正在加载场景模型...</div>
+        </div>
+        <div class="scene-modal-footer"><span>鼠标左键旋转，滚轮缩放，右键平移</span></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="performanceModal">
+    <div class="modal-content performance-modal-content">
+        <div class="modal-header">
+            <div>
+                <div class="modal-title">表演打卡</div>
+                <div class="modal-subtitle">武汉极地海洋公园表演时间表</div>
+            </div>
+            <button type="button" class="modal-close" onclick="closePerformanceModal()">×</button>
+        </div>
+        <div class="modal-body" id="performanceModalBody"></div>
+    </div>
+</div>
+</body>
+</html>
