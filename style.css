@@ -55,6 +55,18 @@ body {
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38);
 }
 
+.globe-intro-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.globe-intro-heading {
+    min-width: 0;
+    flex: 1;
+}
+
 .globe-intro-title {
     font-size: 25px;
     font-weight: 700;
@@ -69,6 +81,30 @@ body {
     margin-bottom: 14px;
 }
 
+.globe-panel-toggle {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(184, 208, 255, 0.2);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #dbe8ff;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.globe-panel-toggle-icon {
+    font-size: 12px;
+    transition: transform 0.2s ease;
+}
+
+.globe-intro-panel.is-collapsed .globe-panel-toggle-icon {
+    transform: rotate(180deg);
+}
+
 .globe-selected-city {
     display: inline-flex;
     align-items: center;
@@ -81,6 +117,10 @@ body {
     color: #f3f9ff;
     font-size: 13px;
     font-weight: 600;
+}
+
+.globe-intro-primary-action {
+    display: none;
 }
 
 .globe-entry-tabs {
@@ -368,12 +408,17 @@ body {
         bottom: 16px;
         transform: none;
         width: auto;
-        padding: 16px;
-        border-radius: 14px;
+        padding: 14px 14px 16px;
+        border-radius: 18px;
+        max-height: min(62vh, 520px);
+        overflow: hidden;
+        background: rgba(8, 18, 40, 0.78);
+        backdrop-filter: blur(14px);
     }
 
     .globe-intro-title {
         font-size: 20px;
+        margin-bottom: 4px;
     }
 
     .globe-intro-subtitle {
@@ -381,11 +426,54 @@ body {
         margin-bottom: 10px;
     }
 
+    .globe-panel-toggle {
+        display: inline-flex;
+        flex: 0 0 auto;
+    }
+
+    .globe-intro-primary-action {
+        display: grid;
+        margin-bottom: 0;
+    }
+
+    .globe-intro-body {
+        display: grid;
+        gap: 10px;
+        max-height: calc(62vh - 150px);
+        overflow-y: auto;
+        padding-top: 10px;
+        transition: max-height 0.25s ease, opacity 0.2s ease, padding-top 0.2s ease;
+    }
+
+    .globe-intro-panel.is-collapsed {
+        max-height: 196px;
+    }
+
+    .globe-intro-panel.is-collapsed .globe-intro-subtitle,
+    .globe-intro-panel.is-collapsed .globe-intro-body {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        padding-top: 0;
+        margin: 0;
+        pointer-events: none;
+    }
+
+    .globe-intro-panel.is-collapsed .globe-selected-city {
+        margin-bottom: 12px;
+    }
+
     .globe-city-btn,
     .globe-start-btn,
     .globe-skip-btn {
         padding: 10px 12px;
         font-size: 12px;
+    }
+
+    .globe-city-buttons,
+    .globe-intro-actions,
+    .globe-entry-tabs {
+        gap: 10px;
     }
 
     .globe-poi-marker {
