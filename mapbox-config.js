@@ -1,12 +1,36 @@
-// 1. 优先尝试 GitHub Actions 注入的占位符（用于 GitHub Pages）
-let token = 'YOUR_MAPBOX_TOKEN_PLACEHOLDER';
+/**
+ * Mapbox 配置管理
+ * 兼容 GitHub Actions (sed 替换) 与 Vercel 部署环境
+ */
 
-// 2. 如果占位符没被替换（比如在 Vercel 或本地），尝试读取系统环境变量
-// 注意：纯前端 JS 无法直接访问 process.env，除非经过构建工具
-if (token.includes('PLACEHOLDER')) {
-    // 这里的逻辑可以留空，或者指向你其他的全局变量
-    token = window.MAPBOX_TOKEN || ''; 
+// 1. 定义占位符。在构建过程中，sed 命令会将此处的字符串替换为真实 Token。
+// 注意：请务必保持这一行原样提交到 GitHub，不要手动填入真实 Token。
+const secretToken = 'YOUR_MAPBOX_TOKEN_PLACEHOLDER';
+
+/**
+ * 获取有效的 Token
+ * 逻辑：如果占位符被成功替换（不再包含 "PLACEHOLDER"），则使用替换后的值。
+ * 如果没被替换，则尝试从全局变量获取（作为备选）。
+ */
+function getMapboxToken() {
+    // 检查占位符是否已被替换
+    if (secretToken && !secretToken.includes('PLACEHOLDER') && secretToken !== '') {
+        return secretToken.trim();
+    }
+    
+    // 如果占位符未被替换，尝试读取可能由其他脚本定义的全局变量
+    // 如果依然没有，则返回空，界面会提示未检测到 Token
+    return (window.MAPBOX_TOKEN || '').trim();
 }
 
-window.MAPBOX_ACCESS_TOKEN = token.trim();
-window.MAPBOX_TOKEN = window.MAPBOX_ACCESS_TOKEN;
+// 统一挂载到 window 对象，供 app.js 等其他文件调用
+const finalToken = getMapboxToken();
+window.MAPBOX_ACCESS_TOKEN = finalToken;
+window.MAPBOX_TOKEN = finalToken;
+
+// 控制台调试日志（上线后可删除）
+if (finalToken === '' || finalToken.includes('PLACEHOLDER')) {
+    console.warn("Mapbox Token 尚未加载：请检查部署脚本注入或环境变量配置。");
+} else {
+    console.log("Mapbox Token 已成功加载。");
+}
