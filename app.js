@@ -15,7 +15,8 @@ var globeIntroState = {
     markers: [],
     selectedMode: 'shenzhen',
     selectedGroup: 'city',
-    resizeHandler: null
+    resizeHandler: null,
+    panelExpanded: true
 };
 var routePlannerState = {
     visible: false,
@@ -4293,6 +4294,43 @@ function setGlobeTokenHint(message) {
     hint.classList.toggle('visible', !!message);
 }
 
+function isMobileGlobePanelLayout() {
+    return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+}
+
+function syncGlobePanelState(forceExpanded) {
+    var panel = document.getElementById('globeIntroPanel');
+    var toggleBtn = document.getElementById('globePanelToggle');
+    var toggleText = document.getElementById('globePanelToggleText');
+    var body = document.getElementById('globeIntroBody');
+    var expanded = typeof forceExpanded === 'boolean' ? forceExpanded : globeIntroState.panelExpanded;
+
+    if (!panel) return;
+
+    if (!isMobileGlobePanelLayout()) {
+        expanded = true;
+    }
+
+    globeIntroState.panelExpanded = expanded;
+    panel.classList.toggle('is-collapsed', !expanded);
+
+    if (body) {
+        body.setAttribute('aria-hidden', expanded ? 'false' : 'true');
+    }
+
+    if (toggleBtn) {
+        toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+
+    if (toggleText) {
+        toggleText.textContent = expanded ? '收起列表' : '展开列表';
+    }
+}
+
+function setGlobePanelExpanded(expanded) {
+    syncGlobePanelState(!!expanded);
+}
+
 function updateGlobeSelectionUI(city) {
     if (!city) return;
 
@@ -4333,6 +4371,9 @@ function createGlobeMarkerElement(city) {
     marker.addEventListener('click', function(evt) {
         evt.stopPropagation();
         selectGlobeMode(city.mode);
+        if (isMobileGlobePanelLayout()) {
+            setGlobePanelExpanded(false);
+        }
     });
 
     return marker;
@@ -4665,6 +4706,7 @@ function initGlobeIntro() {
     var intro = document.getElementById('globeIntro');
     var globeContainer = document.getElementById('globeMap');
     var cityButtons = document.querySelectorAll('.globe-city-btn');
+    var panelToggle = document.getElementById('globePanelToggle');
     var groupTabs = document.querySelectorAll('.globe-entry-tab');
     var startBtn = document.getElementById('globeStartBtn');
     var skipBtn = document.getElementById('globeSkipBtn');
@@ -4675,6 +4717,15 @@ function initGlobeIntro() {
     intro.classList.add('active');
     disposeGlobeIntroScene();
     updateGlobeGroupUI();
+    globeIntroState.panelExpanded = isMobileGlobePanelLayout() ? false : true;
+    syncGlobePanelState(globeIntroState.panelExpanded);
+
+    if (panelToggle && panelToggle.getAttribute('data-globe-bound') !== '1') {
+        panelToggle.setAttribute('data-globe-bound', '1');
+        panelToggle.addEventListener('click', function() {
+            setGlobePanelExpanded(!globeIntroState.panelExpanded);
+        });
+    }
 
     groupTabs.forEach(function(tab) {
         if (tab.getAttribute('data-globe-bound') === '1') return;
@@ -4690,6 +4741,9 @@ function initGlobeIntro() {
         btn.addEventListener('click', function() {
             var mode = btn.getAttribute('data-mode') || 'shenzhen';
             selectGlobeMode(mode);
+            if (isMobileGlobePanelLayout()) {
+                setGlobePanelExpanded(false);
+            }
         });
     });
 
@@ -4755,6 +4809,7 @@ function initGlobeIntro() {
     function onResize() {
         if (!globeIntroState.map) return;
         globeIntroState.map.resize();
+        syncGlobePanelState(globeIntroState.panelExpanded);
     }
     window.addEventListener('resize', onResize);
 
