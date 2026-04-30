@@ -19,27 +19,39 @@
     <div class="globe-intro active" id="globeIntro">
         <div id="globeMap" aria-label="3D globe city selector"></div>
         <div class="globe-intro-mask"></div>
-        <div class="globe-intro-panel">
-            <h2 class="globe-intro-title">选择机位城市</h2>
-            <p class="globe-intro-subtitle">先在地球上选择城市，再进入对应的机位探索视图。</p>
+        <div class="globe-intro-panel" id="globeIntroPanel">
+            <div class="globe-intro-header">
+                <div class="globe-intro-heading">
+                    <h2 class="globe-intro-title">选择机位城市</h2>
+                    <p class="globe-intro-subtitle">先在地球上选择城市，再进入对应的机位探索视图。</p>
+                </div>
+                <button class="globe-panel-toggle" id="globePanelToggle" type="button" aria-expanded="true" aria-controls="globeIntroBody">
+                    <span class="globe-panel-toggle-text" id="globePanelToggleText">收起列表</span>
+                    <span class="globe-panel-toggle-icon" id="globePanelToggleIcon">▾</span>
+                </button>
+            </div>
             <div class="globe-selected-city" id="globeSelectedCity">当前目标：深圳</div>
-            <div class="globe-entry-tabs" id="globeEntryTabs">
-                <button class="globe-entry-tab active" type="button" data-group="city">城市机位</button>
-                <button class="globe-entry-tab" type="button" data-group="park">游乐园</button>
-            </div>
-            <div class="globe-city-buttons">
-                <button class="globe-city-btn" data-mode="shenzhen">深圳机位</button>
-                <button class="globe-city-btn" data-mode="suzhou">苏州机位</button>
-                <button class="globe-city-btn" data-mode="wuhan">武汉机位</button>
-                <button class="globe-city-btn" data-mode="wuhanOcean">武汉极地海洋公园</button>
-                <button class="globe-city-btn" data-mode="taipei">台北机位</button>
-                <button class="globe-city-btn" data-mode="disney">香港迪士尼</button>
-            </div>
-            <div class="globe-intro-actions">
+            <div class="globe-intro-primary-action">
                 <button class="globe-start-btn" id="globeStartBtn" data-mode="shenzhen">进入深圳</button>
-                <button class="globe-skip-btn" id="globeSkipBtn">跳过地球入口</button>
             </div>
-            <div class="globe-token-hint" id="globeTokenHint"></div>
+            <div class="globe-intro-body" id="globeIntroBody">
+                <div class="globe-entry-tabs" id="globeEntryTabs">
+                    <button class="globe-entry-tab active" type="button" data-group="city">城市机位</button>
+                    <button class="globe-entry-tab" type="button" data-group="park">游乐园</button>
+                </div>
+                <div class="globe-city-buttons">
+                    <button class="globe-city-btn" data-mode="shenzhen">深圳机位</button>
+                    <button class="globe-city-btn" data-mode="suzhou">苏州机位</button>
+                    <button class="globe-city-btn" data-mode="wuhan">武汉机位</button>
+                    <button class="globe-city-btn" data-mode="wuhanOcean">武汉极地海洋公园</button>
+                    <button class="globe-city-btn" data-mode="taipei">台北机位</button>
+                    <button class="globe-city-btn" data-mode="disney">香港迪士尼</button>
+                </div>
+                <div class="globe-intro-actions">
+                    <button class="globe-skip-btn" id="globeSkipBtn">跳过地球入口</button>
+                </div>
+                <div class="globe-token-hint" id="globeTokenHint"></div>
+            </div>
         </div>
     </div>
 
