@@ -4481,7 +4481,7 @@ function initGlobeIntro() {
     }
 
     if (!accessToken) {
-        setGlobeTokenHint('未检测到 Mapbox Token，请在 mapbox-config.js 中填写 pk 开头的公开 Token。');
+        setGlobeTokenHint('未检测到 Mapbox 公开 Token；地球视图将跳过，但右侧城市按钮仍可正常进入对应机位页面。');
         return;
     }
 
@@ -4516,7 +4516,7 @@ function initGlobeIntro() {
     });
 
     globeMap.on('error', function() {
-        setGlobeTokenHint('Mapbox 地球加载失败，请检查 mapbox-config.js 中的公开 Token。');
+        setGlobeTokenHint('Mapbox 地球加载失败，请检查部署时注入的公开 Token 或网络配置。');
     });
 
     function onResize() {
@@ -4714,7 +4714,7 @@ function initGlobeIntro() {
     }
 
     if (!accessToken) {
-        setGlobeTokenHint('未检测到 Mapbox Token，请在 mapbox-config.js 中填写后重试。');
+        setGlobeTokenHint('未检测到 Mapbox 公开 Token；地球视图将跳过，但右侧城市按钮仍可正常进入对应机位页面。');
         setGlobeEntryGroup(globeIntroState.selectedGroup || 'city', { fly: false });
         return;
     }
@@ -4749,7 +4749,7 @@ function initGlobeIntro() {
     });
 
     globeMap.on('error', function() {
-        setGlobeTokenHint('Mapbox 地球加载失败，请检查 Token 或网络配置。');
+        setGlobeTokenHint('Mapbox 地球加载失败，请检查部署时注入的公开 Token 或网络配置。');
     });
 
     function onResize() {
