@@ -79,6 +79,31 @@ shenzhen-spot-navigation/
 3. 使用本地服务器打开 `index.html`
 4. 开始使用深圳机位导航
 
+## GitHub Pages 部署
+
+项目已支持通过 GitHub Actions 自动部署，并在部署时动态生成 `mapbox-config.js`。
+
+### 部署前准备
+
+1. 在 Mapbox 后台创建一个新的公开 Token，必须以 `pk.` 开头
+2. 为这个 Token 配置 URL 限制，只允许你的站点域名访问
+3. 在 GitHub 仓库中进入 `Settings > Secrets and variables > Actions`
+4. 新建仓库 Secret：
+   - Name: `MAPBOX_PUBLIC_TOKEN`
+   - Secret: 你的 Mapbox `pk.` Token
+
+### 启用方式
+
+1. 将仓库 `Pages` 的构建来源切换为 `GitHub Actions`
+2. 推送到 `main` 分支，或在 `Actions` 页面手动执行 `Deploy GitHub Pages`
+3. 工作流会在部署时自动覆盖生成 `mapbox-config.js`
+
+### 安全说明
+
+- 仓库中的 `mapbox-config.js` 不再保存真实 Token
+- 真实 Token 只会在 GitHub Actions 运行时注入到部署产物
+- 如果 Token 泄露，请在 Mapbox 后台立刻撤销并更换新的受限 Token
+
 ### 本地服务器设置
 ```bash
 # 使用Python启动本地服务器
