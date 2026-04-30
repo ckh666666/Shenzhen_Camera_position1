@@ -3715,7 +3715,7 @@ var frozenWorldAttractions = [
         bestTime: '开园后或闭园前',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/frozen_sled.jpg'
+        imagePath: 'images/frozen_sled.jpg'
     },
     {
         id: 'frozen_journey_002',
@@ -3735,7 +3735,7 @@ var frozenWorldAttractions = [
         bestTime: '开园后立即前往',
         environment: 'indoor',
         weather: ['sunny', 'cloudy', 'rainy'],
-        imagePath: '../images/frozen_journey.jpg'
+        imagePath: 'images/frozen_journey.jpg'
     }
 ];
 
@@ -3759,7 +3759,7 @@ var toyStoryAttractions = [
         bestTime: '上午或傍晚',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/toy_story_barrel.jpg'
+        imagePath: 'images/toy_story_barrel.jpg'
     },
     {
         id: 'toy_story_rc_002',
@@ -3779,7 +3779,7 @@ var toyStoryAttractions = [
         bestTime: '开园后或闭园前',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/toy_story_rc.jpg'
+        imagePath: 'images/toy_story_rc.jpg'
     },
     {
         id: 'toy_story_slingshot_003',
@@ -3799,7 +3799,7 @@ var toyStoryAttractions = [
         bestTime: '上午或下午',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/toy_story_slingshot.jpg'
+        imagePath: 'images/toy_story_slingshot.jpg'
     },
     {
         id: 'toy_story_parachute_004',
@@ -3819,7 +3819,7 @@ var toyStoryAttractions = [
         bestTime: '上午或下午',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/toy_story_parachute.jpg'
+        imagePath: 'images/toy_story_parachute.jpg'
     },
     {
         id: 'toy_story_training_005',
@@ -3839,7 +3839,7 @@ var toyStoryAttractions = [
         bestTime: '表演时间',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/toy_story_training.jpg'
+        imagePath: 'images/toy_story_training.jpg'
     }
 ];
 
@@ -3863,7 +3863,7 @@ var mysticManorAttractions = [
         bestTime: '上午或傍晚',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/mystic_garden.jpg'
+        imagePath: 'images/mystic_garden.jpg'
     },
     {
         id: 'mystic_mansion_002',
@@ -3883,7 +3883,7 @@ var mysticManorAttractions = [
         bestTime: '上午或下午',
         environment: 'indoor',
         weather: ['sunny', 'cloudy', 'rainy'],
-        imagePath: '../images/mystic_mansion.jpg'
+        imagePath: 'images/mystic_mansion.jpg'
     },
     {
         id: 'mystic_cargo_003',
@@ -3903,7 +3903,7 @@ var mysticManorAttractions = [
         bestTime: '上午或下午',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/mystic_cargo.jpg'
+        imagePath: 'images/mystic_cargo.jpg'
     }
 ];
 
@@ -3927,7 +3927,7 @@ var grizzlyGulchAttractions = [
         bestTime: '上午或下午',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/grizzly_fountain.jpg'
+        imagePath: 'images/grizzly_fountain.jpg'
     },
     {
         id: 'grizzly_photo_002',
@@ -3947,7 +3947,7 @@ var grizzlyGulchAttractions = [
         bestTime: '上午或下午',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/grizzly_photo.jpg'
+        imagePath: 'images/grizzly_photo.jpg'
     },
     {
         id: 'grizzly_mine_003',
@@ -3967,7 +3967,7 @@ var grizzlyGulchAttractions = [
         bestTime: '开园后或闭园前',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/grizzly_mine.jpg'
+        imagePath: 'images/grizzly_mine.jpg'
     }
 ];
 
@@ -3991,7 +3991,7 @@ var lionKingAttractions = [
         bestTime: '全天开放',
         environment: 'indoor',
         weather: ['sunny', 'cloudy', 'rainy'],
-        imagePath: '../images/lion_king_market.jpg'
+        imagePath: 'images/lion_king_market.jpg'
     },
     {
         id: 'lion_king_show_002',
@@ -4011,7 +4011,7 @@ var lionKingAttractions = [
         bestTime: '表演时间',
         environment: 'indoor',
         weather: ['sunny', 'cloudy', 'rainy'],
-        imagePath: '../images/lion_king_show.jpg'
+        imagePath: 'images/lion_king_show.jpg'
     }
 ];
 
@@ -4035,7 +4035,7 @@ var adventureWorldAttractions = [
         bestTime: '上午或下午',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/adventure_river.jpg'
+        imagePath: 'images/adventure_river.jpg'
     },
     {
         id: 'adventure_fountain_002',
@@ -4055,7 +4055,7 @@ var adventureWorldAttractions = [
         bestTime: '上午或下午',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/adventure_fountain.jpg'
+        imagePath: 'images/adventure_fountain.jpg'
     },
     {
         id: 'adventure_celebration_003',
@@ -4075,7 +4075,7 @@ var adventureWorldAttractions = [
         bestTime: '表演时间',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/adventure_celebration.jpg'
+        imagePath: 'images/adventure_celebration.jpg'
     }
 ];
 
@@ -4099,7 +4099,7 @@ var castleAttractions = [
         bestTime: '见面时间',
         environment: 'indoor',
         weather: ['sunny', 'cloudy', 'rainy'],
-        imagePath: '../images/castle_court.jpg'
+        imagePath: 'images/castle_court.jpg'
     },
     {
         id: 'castle_main_002',
@@ -4119,7 +4119,7 @@ var castleAttractions = [
         bestTime: '上午或黄昏',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/castle_main.jpg'
+        imagePath: 'images/castle_main.jpg'
     },
     {
         id: 'castle_party_003',
@@ -4139,7 +4139,7 @@ var castleAttractions = [
         bestTime: '表演时间',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/castle_party.jpg'
+        imagePath: 'images/castle_party.jpg'
     }
 ];
 
@@ -4163,7 +4163,7 @@ var tomorrowlandAttractions = [
         bestTime: '上午或下午',
         environment: 'indoor',
         weather: ['sunny', 'cloudy', 'rainy'],
-        imagePath: '../images/tomorrowland_antman.jpg'
+        imagePath: 'images/tomorrowland_antman.jpg'
     },
     {
         id: 'tomorrowland_spaceship_002',
@@ -4183,7 +4183,7 @@ var tomorrowlandAttractions = [
         bestTime: '暂停开放',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/tomorrowland_spaceship.jpg'
+        imagePath: 'images/tomorrowland_spaceship.jpg'
     },
     {
         id: 'tomorrowland_ironman_003',
@@ -4203,7 +4203,7 @@ var tomorrowlandAttractions = [
         bestTime: '全天开放',
         environment: 'indoor',
         weather: ['sunny', 'cloudy', 'rainy'],
-        imagePath: '../images/tomorrowland_ironman_exhibit.jpg'
+        imagePath: 'images/tomorrowland_ironman_exhibit.jpg'
     },
     {
         id: 'tomorrowland_ironman_ride_004',
@@ -4223,7 +4223,7 @@ var tomorrowlandAttractions = [
         bestTime: '上午或下午',
         environment: 'indoor',
         weather: ['sunny', 'cloudy', 'rainy'],
-        imagePath: '../images/tomorrowland_ironman_ride.jpg'
+        imagePath: 'images/tomorrowland_ironman_ride.jpg'
     },
     {
         id: 'tomorrowland_starwars_005',
@@ -4243,7 +4243,7 @@ var tomorrowlandAttractions = [
         bestTime: '开园后或闭园前',
         environment: 'indoor',
         weather: ['sunny', 'cloudy', 'rainy'],
-        imagePath: '../images/tomorrowland_starwars.jpg'
+        imagePath: 'images/tomorrowland_starwars.jpg'
     }
 ];
 
@@ -4267,7 +4267,7 @@ var fantasylandAttractions = [
         bestTime: '上午或下午',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/fantasyland_teacups.jpg'
+        imagePath: 'images/fantasyland_teacups.jpg'
     },
     {
         id: 'fantasyland_smallworld_002',
@@ -4287,7 +4287,7 @@ var fantasylandAttractions = [
         bestTime: '上午或下午',
         environment: 'indoor',
         weather: ['sunny', 'cloudy', 'rainy'],
-        imagePath: '../images/fantasyland_smallworld.jpg'
+        imagePath: 'images/fantasyland_smallworld.jpg'
     },
     {
         id: 'fantasyland_storybook_003',
@@ -4307,7 +4307,7 @@ var fantasylandAttractions = [
         bestTime: '表演时间',
         environment: 'indoor',
         weather: ['sunny', 'cloudy', 'rainy'],
-        imagePath: '../images/fantasyland_storybook.jpg'
+        imagePath: 'images/fantasyland_storybook.jpg'
     },
     {
         id: 'fantasyland_garden_004',
@@ -4327,7 +4327,7 @@ var fantasylandAttractions = [
         bestTime: '上午或傍晚',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/fantasyland_garden.jpg'
+        imagePath: 'images/fantasyland_garden.jpg'
     },
     {
         id: 'fantasyland_pooh_005',
@@ -4347,7 +4347,7 @@ var fantasylandAttractions = [
         bestTime: '上午或下午',
         environment: 'indoor',
         weather: ['sunny', 'cloudy', 'rainy'],
-        imagePath: '../images/fantasyland_pooh.jpg'
+        imagePath: 'images/fantasyland_pooh.jpg'
     },
     {
         id: 'fantasyland_dumbo_006',
@@ -4367,7 +4367,7 @@ var fantasylandAttractions = [
         bestTime: '上午或下午',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/fantasyland_dumbo.jpg'
+        imagePath: 'images/fantasyland_dumbo.jpg'
     },
     {
         id: 'fantasyland_carousel_007',
@@ -4387,7 +4387,7 @@ var fantasylandAttractions = [
         bestTime: '上午或下午',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/fantasyland_carousel.jpg'
+        imagePath: 'images/fantasyland_carousel.jpg'
     },
     {
         id: 'fantasyland_mickey_008',
@@ -4407,7 +4407,7 @@ var fantasylandAttractions = [
         bestTime: '上午或下午',
         environment: 'indoor',
         weather: ['sunny', 'cloudy', 'rainy'],
-        imagePath: '../images/fantasyland_mickey.jpg'
+        imagePath: 'images/fantasyland_mickey.jpg'
     },
     {
         id: 'fantasyland_fairytale_009',
@@ -4427,7 +4427,7 @@ var fantasylandAttractions = [
         bestTime: '上午或傍晚',
         environment: 'outdoor',
         weather: ['sunny', 'cloudy'],
-        imagePath: '../images/fantasyland_fairytale.jpg'
+        imagePath: 'images/fantasyland_fairytale.jpg'
     }
 ];
 
