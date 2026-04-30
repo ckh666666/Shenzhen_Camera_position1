@@ -25,12 +25,6 @@ function getMapboxToken() {
 
 // 统一挂载到 window 对象，供 app.js 等其他文件调用
 const finalToken = getMapboxToken();
-window.MAPBOX_ACCESS_TOKEN = finalToken;
-window.MAPBOX_TOKEN = finalToken;
+window.MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoiY2ZleWEiLCJhIjoiY21pMXBlNTdkMDN4aTJscXZjNWt3MnYzZSJ9.cg7gLIuJ065KDxdrOeSC_Q';
+window.MAPBOX_TOKEN = window.MAPBOX_ACCESS_TOKEN;
 
-// 控制台调试日志（上线后可删除）
-if (finalToken === '' || finalToken.includes('PLACEHOLDER')) {
-    console.warn("Mapbox Token 尚未加载：请检查部署脚本注入或环境变量配置。");
-} else {
-    console.log("Mapbox Token 已成功加载。");
-}
