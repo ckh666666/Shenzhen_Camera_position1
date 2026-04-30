@@ -1,0 +1,74 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Validate Mapbox secret
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.MAPBOX_PUBLIC_TOKEN }}" ]; then
+            echo "::error::Missing GitHub secret: MAPBOX_PUBLIC_TOKEN"
+            exit 1
+          fi
+
+          case "${{ secrets.MAPBOX_PUBLIC_TOKEN }}" in
+            pk.*) ;;
+            *)
+              echo "::error::MAPBOX_PUBLIC_TOKEN must be a public Mapbox token starting with pk."
+              exit 1
+              ;;
+          esac
+
+      - name: Inject Mapbox config
+        shell: bash
+        run: |
+          cat > mapbox-config.js <<EOF
+          // Generated during GitHub Actions deployment.
+          window.MAPBOX_ACCESS_TOKEN = '${{ secrets.MAPBOX_PUBLIC_TOKEN }}';
+          window.MAPBOX_TOKEN = window.MAPBOX_ACCESS_TOKEN;
+          EOF
+
+      - name: Disable Jekyll processing
+        shell: bash
+        run: touch .nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
